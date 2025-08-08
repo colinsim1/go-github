@@ -11,26 +11,92 @@ import (
 	"time"
 )
 
+const (
+	StreamTypeAzureBlob      = "Azure Blob Storage"
+	StreamTypeAzureEventHubs = "Azure Event Hubs"
+	StreamTypeAmazonS3       = "Amazon S3"
+	StreamTypeSplunk         = "Splunk"
+	StreamTypeHEC            = "HTTPS Event Collector"
+	StreamTypeGCS            = "Google Cloud Storage"
+	StreamTypeDatadog        = "Datadog"
+)
+
+type (
+	AzureBlobConfig struct {
+		KeyID           string `json:"key_id"`
+		EncryptedSASURL string `json:"encrypted_sas_url"`
+	}
+	AzureEventHubsConfig struct {
+		Name                string `json:"name"`
+		EncryptedConnstring string `json:"encrypted_connstring"`
+		KeyID               string `json:"key_id"`
+	}
+	AmazonS3OIDCConfig struct {
+		Bucket             string `json:"bucket"`
+		Region             string `json:"region"`
+		KeyID              string `json:"key_id"`
+		AuthenticationType string `json:"authentication_type"`
+		ArnRole            string `json:"arn_role"`
+	}
+	AmazonS3AccessKeysConfig struct {
+		Bucket               string `json:"bucket"`
+		Region               string `json:"region"`
+		KeyID                string `json:"key_id"`
+		AuthenticationType   string `json:"authentication_type"`
+		EncryptedAccessKeyID string `json:"encrypted_access_key_id"`
+		EncryptedSecretKey   string `json:"encrypted_secret_key"`
+	}
+	SplunkConfig struct {
+		Domain         string `json:"domain"`
+		Port           int    `json:"port"`
+		KeyID          string `json:"key_id"`
+		EncryptedToken string `json:"encrypted_token"`
+		SSLVerify      bool   `json:"ssl_verify"`
+	}
+	HECConfig struct {
+		Domain         string `json:"domain"`
+		Port           int    `json:"port"`
+		Path           string `json:"path"`
+		KeyID          string `json:"key_id"`
+		EncryptedToken string `json:"encrypted_token"`
+		SSLVerify      bool   `json:"ssl_verify"`
+	}
+	GCSConfig struct {
+		Bucket                   string `json:"bucket"`
+		KeyID                    string `json:"key_id"`
+		EncryptedJSONCredentials string `json:"encrypted_json_credentials"`
+	}
+	DatadogConfig struct {
+		KeyID          string `json:"key_id"`
+		EncryptedToken string `json:"encrypted_token"`
+		Site           string `json:"site"`
+	}
+)
+
+// AuditLogStreamConfig is the request payload.
+//
+// VendorSpecific is intentionally interface{} to stay idiomatic with go-github’s
+// lightweight API surface. You can pass one of the concrete vendor structs below,
+// or your own map[string]any with the expected JSON fields for the chosen stream type.
 type AuditLogStreamConfig struct {
-	Enabled        bool            `json:"enabled,omitempty"`
-	StreamType     string          `json:"stream_type,omitempty"` // e.g. "active" or "inactive"
-	VendorSpecific AzureBlobConfig `json:"vendor_specific,omitempty"`
+	Enabled        bool        `json:"enabled,omitempty"`
+	StreamType     string      `json:"stream_type,omitempty"`
+	VendorSpecific interface{} `json:"vendor_specific,omitempty"`
 }
 
-type AzureBlobConfig struct {
-	KeyID           string `json:"key_id"`
-	EncryptedSASURL string `json:"encrypted_sas_url"`
-}
-
+// AuditLogStreamEntry is the response payload.
+//
+// VendorSpecific is an interface{} to match the API’s polymorphic shape. Use
+// UnmarshalVendorSpecific to decode it into a concrete struct if desired.
 type AuditLogStreamEntry struct {
-	ID             int             `json:"id,omitempty"`
-	StreamType     string          `json:"stream_type"`
-	StreamDetails  string          `json:"stream_details,omitempty"`
-	Enabled        bool            `json:"enabled"`
-	CreatedAt      time.Time       `json:"created_at,omitempty"`
-	UpdatedAt      time.Time       `json:"updated_at,omitempty"`
-	PausedAt       *time.Time      `json:"paused_at,omitempty"`
-	VendorSpecific AzureBlobConfig `json:"vendor_specific"`
+	ID             int         `json:"id,omitempty"`
+	StreamType     string      `json:"stream_type"`
+	StreamDetails  string      `json:"stream_details,omitempty"`
+	Enabled        bool        `json:"enabled"`
+	CreatedAt      time.Time   `json:"created_at,omitempty"`
+	UpdatedAt      time.Time   `json:"updated_at,omitempty"`
+	PausedAt       *time.Time  `json:"paused_at,omitempty"`
+	VendorSpecific interface{} `json:"vendor_specific"`
 }
 
 // CreateAuditLogStream creates an audit log stream
@@ -46,12 +112,12 @@ func (s *EnterpriseService) CreateAuditLogStream(ctx context.Context, enterprise
 		return nil, nil, err
 	}
 
-	auditLogStreamEntry := new(AuditLogStreamEntry)
-	resp, err := s.client.Do(ctx, req, auditLogStreamEntry)
+	out := new(AuditLogStreamEntry)
+	resp, err := s.client.Do(ctx, req, out)
 	if err != nil {
 		return nil, resp, err
 	}
-	return auditLogStreamEntry, resp, nil
+	return out, resp, nil
 }
 
 // ListAuditLogStreams lists all audit log streams
@@ -87,17 +153,16 @@ func (s *EnterpriseService) GetAuditLogStream(ctx context.Context, enterprise st
 	if err != nil {
 		return nil, nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
 
-	var stream AuditLogStreamEntry
-	resp, err := s.client.Do(ctx, req, &stream)
+	out := new(AuditLogStreamEntry)
+	resp, err := s.client.Do(ctx, req, out)
 	if err != nil {
 		return nil, resp, err
 	}
-	return &stream, resp, nil
+	return out, resp, nil
 }
 
-// DeleteAuditLogStream deletes an audit log streams
+// DeleteAuditLogStream deletes an audit log stream
 //
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/enterprise-admin/audit-log#delete-an-audit-log-streaming-configuration-for-an-enterprise
 //

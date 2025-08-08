@@ -1595,6 +1595,17 @@ func TestAuditEntry_GetUserID(tt *testing.T) {
 	a.GetUserID()
 }
 
+func TestAuditLogStreamEntry_GetPausedAt(tt *testing.T) {
+	tt.Parallel()
+	var zeroValue time.Time
+	a := &AuditLogStreamEntry{PausedAt: &zeroValue}
+	a.GetPausedAt()
+	a = &AuditLogStreamEntry{}
+	a.GetPausedAt()
+	a = nil
+	a.GetPausedAt()
+}
+
 func TestAuthorization_GetApp(tt *testing.T) {
 	tt.Parallel()
 	a := &Authorization{}

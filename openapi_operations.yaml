@@ -700,6 +700,26 @@ openapi_operations:
     openapi_files:
       - descriptions/ghec/ghec.json
       - descriptions/ghes-3.15/ghes-3.15.json
+  - name: POST /enterprises/{enterprise}/audit-log/streams
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#create-an-audit-log-streaming-configuration-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
+      - descriptions/ghes-3.15/ghes-3.15.json
+  - name: GET /enterprises/{enterprise}/audit-log/streams
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#list-audit-log-stream-configurations-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
+      - descriptions/ghes-3.15/ghes-3.15.json
+  - name: GET /enterprises/{enterprise}/audit-log/streams/{stream_id}
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#list-one-audit-log-streaming-configuration-via-a-stream-id
+    openapi_files:
+      - descriptions/ghec/ghec.json
+      - descriptions/ghes-3.15/ghes-3.15.json
+  - name: DELETE /enterprises/{enterprise}/audit-log/streams/{stream_id}
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#delete-an-audit-log-streaming-configuration-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
+      - descriptions/ghes-3.15/ghes-3.15.json
   - name: GET /enterprises/{enterprise}/code-scanning/alerts
     documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/code-scanning/code-scanning#list-code-scanning-alerts-for-an-enterprise
     openapi_files:

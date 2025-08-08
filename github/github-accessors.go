@@ -1222,6 +1222,14 @@ func (a *AuditEntry) GetUserID() int64 {
 	return *a.UserID
 }
 
+// GetPausedAt returns the PausedAt field if it's non-nil, zero value otherwise.
+func (a *AuditLogStreamEntry) GetPausedAt() time.Time {
+	if a == nil || a.PausedAt == nil {
+		return time.Time{}
+	}
+	return *a.PausedAt
+}
+
 // GetApp returns the App field.
 func (a *Authorization) GetApp() *AuthorizationApp {
 	if a == nil {

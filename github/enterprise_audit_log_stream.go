@@ -11,100 +11,28 @@ import (
 	"time"
 )
 
-const (
-	StreamTypeAzureBlob      = "Azure Blob Storage"
-	StreamTypeAzureEventHubs = "Azure Event Hubs"
-	StreamTypeAmazonS3       = "Amazon S3"
-	StreamTypeSplunk         = "Splunk"
-	StreamTypeHEC            = "HTTPS Event Collector"
-	StreamTypeGCS            = "Google Cloud Storage"
-	StreamTypeDatadog        = "Datadog"
-)
-
-type (
-	AzureBlobConfig struct {
-		KeyID           string `json:"key_id"`
-		EncryptedSASURL string `json:"encrypted_sas_url"`
-	}
-	AzureEventHubsConfig struct {
-		Name                string `json:"name"`
-		EncryptedConnstring string `json:"encrypted_connstring"`
-		KeyID               string `json:"key_id"`
-	}
-	AmazonS3OIDCConfig struct {
-		Bucket             string `json:"bucket"`
-		Region             string `json:"region"`
-		KeyID              string `json:"key_id"`
-		AuthenticationType string `json:"authentication_type"`
-		ArnRole            string `json:"arn_role"`
-	}
-	AmazonS3AccessKeysConfig struct {
-		Bucket               string `json:"bucket"`
-		Region               string `json:"region"`
-		KeyID                string `json:"key_id"`
-		AuthenticationType   string `json:"authentication_type"`
-		EncryptedAccessKeyID string `json:"encrypted_access_key_id"`
-		EncryptedSecretKey   string `json:"encrypted_secret_key"`
-	}
-	SplunkConfig struct {
-		Domain         string `json:"domain"`
-		Port           int    `json:"port"`
-		KeyID          string `json:"key_id"`
-		EncryptedToken string `json:"encrypted_token"`
-		SSLVerify      bool   `json:"ssl_verify"`
-	}
-	HECConfig struct {
-		Domain         string `json:"domain"`
-		Port           int    `json:"port"`
-		Path           string `json:"path"`
-		KeyID          string `json:"key_id"`
-		EncryptedToken string `json:"encrypted_token"`
-		SSLVerify      bool   `json:"ssl_verify"`
-	}
-	GCSConfig struct {
-		Bucket                   string `json:"bucket"`
-		KeyID                    string `json:"key_id"`
-		EncryptedJSONCredentials string `json:"encrypted_json_credentials"`
-	}
-	DatadogConfig struct {
-		KeyID          string `json:"key_id"`
-		EncryptedToken string `json:"encrypted_token"`
-		Site           string `json:"site"`
-	}
-)
-
-// AuditLogStreamConfig is the request payload.
-//
-// VendorSpecific is intentionally interface{} to stay idiomatic with go-github’s
-// lightweight API surface. You can pass one of the concrete vendor structs below,
-// or your own map[string]any with the expected JSON fields for the chosen stream type.
-type AuditLogStreamConfig struct {
-	Enabled        bool        `json:"enabled,omitempty"`
-	StreamType     string      `json:"stream_type,omitempty"`
-	VendorSpecific interface{} `json:"vendor_specific,omitempty"`
+type AuditStream struct {
+	ID             *int               `json:"id,omitempty"`
+	Enabled        bool               `json:"enabled,omitempty"`
+	StreamType     string             `json:"stream_type,omitempty"`
+	StreamDetails  string             `json:"stream_details,omitempty"`
+	CreatedAt      time.Time          `json:"created_at,omitempty"`
+	UpdatedAt      time.Time          `json:"updated_at,omitempty"`
+	PausedAt       *time.Time         `json:"paused_at,omitempty"`
+	VendorSpecific *map[string]string `json:"vendor_specific,omitempty"`
 }
 
-// AuditLogStreamEntry is the response payload.
-//
-// VendorSpecific is an interface{} to match the API’s polymorphic shape. Use
-// UnmarshalVendorSpecific to decode it into a concrete struct if desired.
-type AuditLogStreamEntry struct {
-	ID             int         `json:"id,omitempty"`
-	StreamType     string      `json:"stream_type"`
-	StreamDetails  string      `json:"stream_details,omitempty"`
-	Enabled        bool        `json:"enabled"`
-	CreatedAt      time.Time   `json:"created_at,omitempty"`
-	UpdatedAt      time.Time   `json:"updated_at,omitempty"`
-	PausedAt       *time.Time  `json:"paused_at,omitempty"`
-	VendorSpecific interface{} `json:"vendor_specific"`
+type AuditLogStreamKey struct {
+	KeyID     string `json:"key_id"`
+	PublicKey string `json:"public_key"`
 }
 
-// CreateAuditLogStream creates an audit log stream
+// CreateAuditStream creates an audit log stream
 //
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/enterprise-admin/audit-log#create-an-audit-log-streaming-configuration-for-an-enterprise
 //
 //meta:operation POST /enterprises/{enterprise}/audit-log/streams
-func (s *EnterpriseService) CreateAuditLogStream(ctx context.Context, enterprise string, config *AuditLogStreamConfig) (*AuditLogStreamEntry, *Response, error) {
+func (s *EnterpriseService) CreateAuditStream(ctx context.Context, enterprise string, config *AuditStream) (*AuditStream, *Response, error) {
 	u := fmt.Sprintf("enterprises/%v/audit-log/streams", enterprise)
 
 	req, err := s.client.NewRequest("POST", u, config)
@@ -112,7 +40,7 @@ func (s *EnterpriseService) CreateAuditLogStream(ctx context.Context, enterprise
 		return nil, nil, err
 	}
 
-	out := new(AuditLogStreamEntry)
+	out := new(AuditStream)
 	resp, err := s.client.Do(ctx, req, out)
 	if err != nil {
 		return nil, resp, err
@@ -120,12 +48,12 @@ func (s *EnterpriseService) CreateAuditLogStream(ctx context.Context, enterprise
 	return out, resp, nil
 }
 
-// ListAuditLogStreams lists all audit log streams
+// ListAuditStreams lists all audit log streams
 //
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/enterprise-admin/audit-log#list-audit-log-stream-configurations-for-an-enterprise
 //
 //meta:operation GET /enterprises/{enterprise}/audit-log/streams
-func (s *EnterpriseService) ListAuditLogStreams(ctx context.Context, enterprise string) ([]*AuditLogStreamEntry, *Response, error) {
+func (s *EnterpriseService) ListAuditStreams(ctx context.Context, enterprise string) ([]*AuditStream, *Response, error) {
 	u := fmt.Sprintf("enterprises/%v/audit-log/streams", enterprise)
 
 	req, err := s.client.NewRequest("GET", u, nil)
@@ -133,7 +61,7 @@ func (s *EnterpriseService) ListAuditLogStreams(ctx context.Context, enterprise 
 		return nil, nil, err
 	}
 
-	var streams []*AuditLogStreamEntry
+	var streams []*AuditStream
 	resp, err := s.client.Do(ctx, req, &streams)
 	if err != nil {
 		return nil, resp, err
@@ -141,12 +69,12 @@ func (s *EnterpriseService) ListAuditLogStreams(ctx context.Context, enterprise 
 	return streams, resp, nil
 }
 
-// GetAuditLogStream returns a single audit log stream by ID.
+// GetAuditStream returns a single audit log stream by ID.
 //
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/enterprise-admin/audit-log#list-one-audit-log-streaming-configuration-via-a-stream-id
 //
 //meta:operation GET /enterprises/{enterprise}/audit-log/streams/{stream_id}
-func (s *EnterpriseService) GetAuditLogStream(ctx context.Context, enterprise string, streamID int) (*AuditLogStreamEntry, *Response, error) {
+func (s *EnterpriseService) GetAuditStream(ctx context.Context, enterprise string, streamID int) (*AuditStream, *Response, error) {
 	u := fmt.Sprintf("enterprises/%v/audit-log/streams/%d", enterprise, streamID)
 
 	req, err := s.client.NewRequest("GET", u, nil)
@@ -154,7 +82,7 @@ func (s *EnterpriseService) GetAuditLogStream(ctx context.Context, enterprise st
 		return nil, nil, err
 	}
 
-	out := new(AuditLogStreamEntry)
+	out := new(AuditStream)
 	resp, err := s.client.Do(ctx, req, out)
 	if err != nil {
 		return nil, resp, err
@@ -162,12 +90,12 @@ func (s *EnterpriseService) GetAuditLogStream(ctx context.Context, enterprise st
 	return out, resp, nil
 }
 
-// DeleteAuditLogStream deletes an audit log stream
+// DeleteAuditStream deletes an audit log stream
 //
 // GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/enterprise-admin/audit-log#delete-an-audit-log-streaming-configuration-for-an-enterprise
 //
 //meta:operation DELETE /enterprises/{enterprise}/audit-log/streams/{stream_id}
-func (s *EnterpriseService) DeleteAuditLogStream(ctx context.Context, enterprise string, streamID int) (*Response, error) {
+func (s *EnterpriseService) DeleteAuditStream(ctx context.Context, enterprise string, streamID int) (*Response, error) {
 	u := fmt.Sprintf("enterprises/%v/audit-log/streams/%d", enterprise, streamID)
 
 	req, err := s.client.NewRequest("DELETE", u, nil)
@@ -176,4 +104,25 @@ func (s *EnterpriseService) DeleteAuditLogStream(ctx context.Context, enterprise
 	}
 
 	return s.client.Do(ctx, req, nil)
+}
+
+// GetAuditStreamKey retrieves the audit log key for encrypting secrets
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/enterprise-admin/audit-log#get-the-audit-log-stream-key-for-encrypting-secrets
+//
+//meta:operation GET /enterprises/{enterprise}/audit-log/stream-key
+func (s *EnterpriseService) GetAuditStreamKey(ctx context.Context, enterprise string) (*AuditLogStreamKey, *Response, error) {
+	u := fmt.Sprintf("enterprises/%v/audit-log/stream-key", enterprise)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var key AuditLogStreamKey
+	resp, err := s.client.Do(ctx, req, &key)
+	if err != nil {
+		return nil, resp, err
+	}
+	return &key, resp, nil
 }

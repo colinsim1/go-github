@@ -6,54 +6,57 @@
 package github
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"testing"
 
-	"encoding/json"
+	"github.com/google/go-cmp/cmp"
 )
 
-func TestOrganizationsService_GetCodeSecurityConfigurations(t *testing.T) {
+func TestOrganizationsService_ListCodeSecurityConfigurations(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	opts := &ListOrgCodeSecurityConfigurationOptions{Before: "1", After: "2", PerPage: 30, TargetType: "all"}
+	ctx := t.Context()
 	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/code-security/configurations", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
+		testFormValues(t, r, values{"before": "1", "after": "2", "per_page": "30", "target_type": "all"})
 		fmt.Fprint(w, `[
 		{
 			"id":1,
 			"name":"config1",
+			"description":"desc1",
 			"code_scanning_default_setup": "enabled"
 		},
 		{
 			"id":2,
 			"name":"config2",
+			"description":"desc2",
 			"private_vulnerability_reporting": "enabled"
 		}]`)
 	})
 
-	configurations, _, err := client.Organizations.GetCodeSecurityConfigurations(ctx, "o")
+	configurations, _, err := client.Organizations.ListCodeSecurityConfigurations(ctx, "o", opts)
 	if err != nil {
-		t.Errorf("Organizations.GetOrganizationCodeSecurityConfigurations returned error: %v", err)
+		t.Errorf("Organizations.ListCodeSecurityConfigurations returned error: %v", err)
 	}
 
 	want := []*CodeSecurityConfiguration{
-		{ID: Int64(1), Name: String("config1"), CodeScanningDefaultSetup: String("enabled")},
-		{ID: Int64(2), Name: String("config2"), PrivateVulnerabilityReporting: String("enabled")},
+		{ID: Ptr(int64(1)), Name: "config1", Description: "desc1", CodeScanningDefaultSetup: Ptr("enabled")},
+		{ID: Ptr(int64(2)), Name: "config2", Description: "desc2", PrivateVulnerabilityReporting: Ptr("enabled")},
 	}
-	if !reflect.DeepEqual(configurations, want) {
-		t.Errorf("Organizations.GetCodeSecurityConfigurations returned %+v, want %+v", configurations, want)
+	if !cmp.Equal(configurations, want) {
+		t.Errorf("Organizations.ListCodeSecurityConfigurations returned %+v, want %+v", configurations, want)
 	}
-	const methodName = "GetCodeSecurityConfigurations"
+	const methodName = "ListCodeSecurityConfigurations"
 	testBadOptions(t, methodName, func() (err error) {
-		_, _, err = client.Organizations.GetCodeSecurityConfigurations(ctx, "\n")
+		_, _, err = client.Organizations.ListCodeSecurityConfigurations(ctx, "\n", opts)
 		return err
 	})
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Organizations.GetCodeSecurityConfigurations(ctx, "o")
+		got, resp, err := client.Organizations.ListCodeSecurityConfigurations(ctx, "o", opts)
 		if got != nil {
 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
 		}
@@ -64,13 +67,14 @@ func TestOrganizationsService_GetCodeSecurityConfigurations(t *testing.T) {
 func TestOrganizationsService_GetCodeSecurityConfiguration(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mux.HandleFunc("/orgs/o/code-security/configurations/1", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		fmt.Fprint(w, `{
 			"id":1,
 			"name":"config1",
+			"description":"desc1",
 			"code_scanning_default_setup": "enabled"
 		}`)
 	})
@@ -80,8 +84,8 @@ func TestOrganizationsService_GetCodeSecurityConfiguration(t *testing.T) {
 		t.Errorf("Organizations.GetCodeSecurityConfiguration returned error: %v", err)
 	}
 
-	want := &CodeSecurityConfiguration{ID: Int64(1), Name: String("config1"), CodeScanningDefaultSetup: String("enabled")}
-	if !reflect.DeepEqual(configuration, want) {
+	want := &CodeSecurityConfiguration{ID: Ptr(int64(1)), Name: "config1", Description: "desc1", CodeScanningDefaultSetup: Ptr("enabled")}
+	if !cmp.Equal(configuration, want) {
 		t.Errorf("Organizations.GetCodeSecurityConfiguration returned %+v, want %+v", configuration, want)
 	}
 
@@ -103,27 +107,26 @@ func TestOrganizationsService_GetCodeSecurityConfiguration(t *testing.T) {
 func TestOrganizationsService_CreateCodeSecurityConfiguration(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
-	input := &CodeSecurityConfiguration{
-		Name:                     String("config1"),
-		CodeScanningDefaultSetup: String("enabled"),
+	input := CodeSecurityConfiguration{
+		Name:                     "config1",
+		Description:              "desc1",
+		CodeScanningDefaultSetup: Ptr("enabled"),
 	}
 
 	mux.HandleFunc("/orgs/o/code-security/configurations", func(w http.ResponseWriter, r *http.Request) {
-		v := new(CodeSecurityConfiguration)
-		err := json.NewDecoder(r.Body).Decode(v)
-		if err != nil {
-			t.Errorf("Organizations.CreateCodeSecurityConfiguration request body decode failed: %v", err)
-		}
+		var v CodeSecurityConfiguration
+		assertNilError(t, json.NewDecoder(r.Body).Decode(&v))
 
-		if !reflect.DeepEqual(v, input) {
+		if !cmp.Equal(v, input) {
 			t.Errorf("Organizations.CreateCodeSecurityConfiguration request body = %+v, want %+v", v, input)
 		}
 
 		fmt.Fprint(w, `{
 			"id":1,
 			"name":"config1",
+			"description":"desc1",
 			"code_scanning_default_setup": "enabled"
 		}`)
 	})
@@ -133,8 +136,8 @@ func TestOrganizationsService_CreateCodeSecurityConfiguration(t *testing.T) {
 		t.Errorf("Organizations.CreateCodeSecurityConfiguration returned error: %v", err)
 	}
 
-	want := &CodeSecurityConfiguration{ID: Int64(1), Name: String("config1"), CodeScanningDefaultSetup: String("enabled")}
-	if !reflect.DeepEqual(configuration, want) {
+	want := &CodeSecurityConfiguration{ID: Ptr(int64(1)), Name: "config1", Description: "desc1", CodeScanningDefaultSetup: Ptr("enabled")}
+	if !cmp.Equal(configuration, want) {
 		t.Errorf("Organizations.CreateCodeSecurityConfiguration returned %+v, want %+v", configuration, want)
 	}
 
@@ -153,47 +156,162 @@ func TestOrganizationsService_CreateCodeSecurityConfiguration(t *testing.T) {
 	})
 }
 
-func TestOrganizationsService_GetDefaultCodeSecurityConfigurations(t *testing.T) {
+func TestOrganizationsService_CreateCodeSecurityConfigurationWithDelegatedBypass(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
-	ctx := context.Background()
+	ctx := t.Context()
+
+	input := CodeSecurityConfiguration{
+		Name:                          "config1",
+		Description:                   "desc1",
+		SecretProtection:              Ptr("enabled"), // required to configure bypass
+		SecretScanning:                Ptr("enabled"), // required to configure bypass
+		SecretScanningPushProtection:  Ptr("enabled"), // required to configure bypass
+		SecretScanningDelegatedBypass: Ptr("enabled"),
+		SecretScanningDelegatedBypassOptions: &SecretScanningDelegatedBypassOptions{
+			Reviewers: []*BypassReviewer{
+				{
+					ReviewerType: "TEAM",
+					ReviewerID:   456,
+				},
+				{
+					ReviewerType: "ROLE",
+					ReviewerID:   789,
+				},
+			},
+		},
+	}
+
+	mux.HandleFunc("/orgs/o/code-security/configurations", func(w http.ResponseWriter, r *http.Request) {
+		var v CodeSecurityConfiguration
+		assertNilError(t, json.NewDecoder(r.Body).Decode(&v))
+
+		if !cmp.Equal(v, input) {
+			t.Errorf("Organizations.CreateCodeSecurityConfiguration with Bypass request body = %+v, want %+v", v, input)
+		}
+
+		fmt.Fprint(w, `{
+			"id":123,
+			"name":"config1",
+			"description":"desc1",
+			"secret_protection": "enabled",
+			"secret_scanning": "enabled",
+			"secret_scanning_push_protection": "enabled",
+			"secret_scanning_delegated_bypass": "enabled",
+			"secret_scanning_delegated_bypass_options": {
+				"reviewers": [
+					{
+						"security_configuration_id": 123,
+						"reviewer_type": "TEAM",	
+						"reviewer_id": 456
+					},
+					{
+						"security_configuration_id": 123,
+						"reviewer_type": "ROLE",	
+						"reviewer_id": 789
+					}
+				]			
+			}
+		}`)
+	})
+
+	configuration, _, err := client.Organizations.CreateCodeSecurityConfiguration(ctx, "o", input)
+	if err != nil {
+		t.Errorf("Organizations.CreateCodeSecurityConfiguration with Bypass returned error: %v", err)
+	}
+
+	want := &CodeSecurityConfiguration{
+		ID:                            Ptr(int64(123)),
+		Name:                          "config1",
+		Description:                   "desc1",
+		SecretProtection:              Ptr("enabled"),
+		SecretScanning:                Ptr("enabled"),
+		SecretScanningPushProtection:  Ptr("enabled"),
+		SecretScanningDelegatedBypass: Ptr("enabled"),
+		SecretScanningDelegatedBypassOptions: &SecretScanningDelegatedBypassOptions{
+			Reviewers: []*BypassReviewer{
+				{
+					SecurityConfigurationID: Ptr(int64(123)),
+					ReviewerType:            "TEAM",
+					ReviewerID:              456,
+				},
+				{
+					SecurityConfigurationID: Ptr(int64(123)),
+					ReviewerType:            "ROLE",
+					ReviewerID:              789,
+				},
+			},
+		},
+	}
+	if !cmp.Equal(configuration, want) {
+		t.Errorf("Organizations.CreateCodeSecurityConfiguration with Bypass returned %+v, want %+v", configuration, want)
+	}
+
+	const methodName = "CreateCodeSecurityConfiguration"
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Organizations.CreateCodeSecurityConfiguration(ctx, "\n", input)
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Organizations.CreateCodeSecurityConfiguration(ctx, "o", input)
+		if got != nil {
+			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
+		}
+		return resp, err
+	})
+}
+
+func TestOrganizationsService_ListDefaultCodeSecurityConfigurations(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+	ctx := t.Context()
 
 	mux.HandleFunc("/orgs/o/code-security/configurations/defaults", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		fmt.Fprint(w, `[
 		{
-			"id":1,
-			"name":"config1",
-			"code_scanning_default_setup": "enabled"
+			"default_for_new_repos": "public",
+			"configuration": {
+				"id":1,
+				"name":"config1",
+				"description":"desc1",
+				"code_scanning_default_setup": "enabled"
+			}
 		},
 		{
-			"id":2,
-			"name":"config2",
-			"private_vulnerability_reporting": "enabled"
-		}]`)
+			"default_for_new_repos": "private_and_internal",
+			"configuration": {
+				"id":2,
+				"name":"config2",
+				"description":"desc2",
+				"private_vulnerability_reporting": "enabled"
+			}
+		}
+	]`)
 	})
 
-	configurations, _, err := client.Organizations.GetDefaultCodeSecurityConfigurations(ctx, "o")
+	configurations, _, err := client.Organizations.ListDefaultCodeSecurityConfigurations(ctx, "o")
 	if err != nil {
-		t.Errorf("Organizations.GetDefaultCodeSecurityConfigurations returned error: %v", err)
+		t.Errorf("Organizations.ListDefaultCodeSecurityConfigurations returned error: %v", err)
 	}
 
-	want := []*CodeSecurityConfiguration{
-		{ID: Int64(1), Name: String("config1"), CodeScanningDefaultSetup: String("enabled")},
-		{ID: Int64(2), Name: String("config2"), PrivateVulnerabilityReporting: String("enabled")},
+	want := []*CodeSecurityConfigurationWithDefaultForNewRepos{
+		{DefaultForNewRepos: Ptr("public"), Configuration: &CodeSecurityConfiguration{ID: Ptr(int64(1)), Name: "config1", Description: "desc1", CodeScanningDefaultSetup: Ptr("enabled")}},
+		{DefaultForNewRepos: Ptr("private_and_internal"), Configuration: &CodeSecurityConfiguration{ID: Ptr(int64(2)), Name: "config2", Description: "desc2", PrivateVulnerabilityReporting: Ptr("enabled")}},
 	}
-	if !reflect.DeepEqual(configurations, want) {
-		t.Errorf("Organizations.GetDefaultCodeSecurityConfigurations returned %+v, want %+v", configurations, want)
+	if !cmp.Equal(configurations, want) {
+		t.Errorf("Organizations.ListDefaultCodeSecurityConfigurations returned %+v, want %+v", configurations, want)
 	}
 
-	const methodName = "GetDefaultCodeSecurityConfigurations"
+	const methodName = "ListDefaultCodeSecurityConfigurations"
 	testBadOptions(t, methodName, func() (err error) {
-		_, _, err = client.Organizations.GetDefaultCodeSecurityConfigurations(ctx, "\n")
+		_, _, err = client.Organizations.ListDefaultCodeSecurityConfigurations(ctx, "\n")
 		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Organizations.GetDefaultCodeSecurityConfigurations(ctx, "o")
+		got, resp, err := client.Organizations.ListDefaultCodeSecurityConfigurations(ctx, "o")
 		if got != nil {
 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
 		}
@@ -204,7 +322,7 @@ func TestOrganizationsService_GetDefaultCodeSecurityConfigurations(t *testing.T)
 func TestOrganizationsService_DetachCodeSecurityConfigurationsFromRepositories(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mux.HandleFunc("/orgs/o/code-security/configurations/detach", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
@@ -218,7 +336,7 @@ func TestOrganizationsService_DetachCodeSecurityConfigurationsFromRepositories(t
 
 	want := http.StatusNoContent
 	if resp.StatusCode != want {
-		t.Errorf("Organizations.DetachCodeSecurityConfigurationsFromRepositories returned status %d, want %d", resp.StatusCode, want)
+		t.Errorf("Organizations.DetachCodeSecurityConfigurationsFromRepositories returned status %v, want %v", resp.StatusCode, want)
 	}
 
 	const methodName = "DetachCodeSecurityConfigurationsFromRepositories"
@@ -235,28 +353,27 @@ func TestOrganizationsService_DetachCodeSecurityConfigurationsFromRepositories(t
 
 func TestOrganizationsService_UpdateCodeSecurityConfiguration(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := t.Context()
 	client, mux, _ := setup(t)
 
-	input := &CodeSecurityConfiguration{
-		Name:                     String("config1"),
-		CodeScanningDefaultSetup: String("enabled"),
+	input := CodeSecurityConfiguration{
+		Name:                     "config1",
+		Description:              "desc1",
+		CodeScanningDefaultSetup: Ptr("enabled"),
 	}
 
 	mux.HandleFunc("/orgs/o/code-security/configurations/1", func(w http.ResponseWriter, r *http.Request) {
-		v := new(CodeSecurityConfiguration)
-		err := json.NewDecoder(r.Body).Decode(v)
-		if err != nil {
-			t.Errorf("Organizations.UpdateCodeSecurityConfiguration request body decode failed: %v", err)
-		}
+		var v CodeSecurityConfiguration
+		assertNilError(t, json.NewDecoder(r.Body).Decode(&v))
 
-		if !reflect.DeepEqual(v, input) {
+		if !cmp.Equal(v, input) {
 			t.Errorf("Organizations.UpdateCodeSecurityConfiguration request body = %+v, want %+v", v, input)
 		}
 
 		fmt.Fprint(w, `{
 			"id":1,
 			"name":"config1",
+			"description":"desc1",
 			"code_scanning_default_setup": "enabled"
 		}`)
 	})
@@ -266,15 +383,15 @@ func TestOrganizationsService_UpdateCodeSecurityConfiguration(t *testing.T) {
 		t.Errorf("Organizations.UpdateCodeSecurityConfiguration returned error: %v", err)
 	}
 
-	want := &CodeSecurityConfiguration{ID: Int64(1), Name: String("config1"), CodeScanningDefaultSetup: String("enabled")}
-	if !reflect.DeepEqual(configuration, want) {
+	want := &CodeSecurityConfiguration{ID: Ptr(int64(1)), Name: "config1", Description: "desc1", CodeScanningDefaultSetup: Ptr("enabled")}
+	if !cmp.Equal(configuration, want) {
 		t.Errorf("Organizations.UpdateCodeSecurityConfiguration returned %+v, want %+v", configuration, want)
 	}
 
 	const methodName = "UpdateCodeSecurityConfiguration"
 	testBadOptions(t, methodName, func() (err error) {
 		_, _, err = client.Organizations.UpdateCodeSecurityConfiguration(ctx, "\n", -1, input)
-		return
+		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
@@ -288,7 +405,7 @@ func TestOrganizationsService_UpdateCodeSecurityConfiguration(t *testing.T) {
 
 func TestOrganizationsService_DeleteCodeSecurityConfiguration(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := t.Context()
 	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/code-security/configurations/1", func(w http.ResponseWriter, r *http.Request) {
@@ -303,13 +420,13 @@ func TestOrganizationsService_DeleteCodeSecurityConfiguration(t *testing.T) {
 
 	want := http.StatusNoContent
 	if resp.StatusCode != want {
-		t.Errorf("Organizations.DeleteCodeSecurityConfiguration returned status %d, want %d", resp.StatusCode, want)
+		t.Errorf("Organizations.DeleteCodeSecurityConfiguration returned status %v, want %v", resp.StatusCode, want)
 	}
 
 	const methodName = "DeleteCodeSecurityConfiguration"
 	testBadOptions(t, methodName, func() (err error) {
 		_, err = client.Organizations.DeleteCodeSecurityConfiguration(ctx, "\n", -1)
-		return
+		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
@@ -318,9 +435,9 @@ func TestOrganizationsService_DeleteCodeSecurityConfiguration(t *testing.T) {
 	})
 }
 
-func TestOrganizationsService_AttachCodeSecurityConfigurationsToRepositories(t *testing.T) {
+func TestOrganizationsService_AttachCodeSecurityConfigurationToRepositories(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := t.Context()
 	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/code-security/configurations/1/attach", func(w http.ResponseWriter, r *http.Request) {
@@ -330,55 +447,53 @@ func TestOrganizationsService_AttachCodeSecurityConfigurationsToRepositories(t *
 			SelectedRepositoryIDs []int64 `json:"selected_repository_ids,omitempty"`
 		}
 		v := new(request)
-		err := json.NewDecoder(r.Body).Decode(v)
-		if err != nil {
-			t.Errorf("Organizations.AttachCodeSecurityConfigurationsToRepositories request body decode failed: %v", err)
-		}
+		assertNilError(t, json.NewDecoder(r.Body).Decode(v))
 		if v.Scope != "selected" {
-			t.Errorf("Organizations.AttachCodeSecurityConfigurationsToRepositories request body scope = %s, want selected", v.Scope)
+			t.Errorf("Organizations.AttachCodeSecurityConfigurationToRepositories request body scope = %v, want selected", v.Scope)
 		}
-		if !reflect.DeepEqual(v.SelectedRepositoryIDs, []int64{5, 20}) {
-			t.Errorf("Organizations.AttachCodeSecurityConfigurationsToRepositories request body selected_repository_ids = %+v, want %+v", v.SelectedRepositoryIDs, []int64{5, 20})
+		if !cmp.Equal(v.SelectedRepositoryIDs, []int64{5, 20}) {
+			t.Errorf("Organizations.AttachCodeSecurityConfigurationToRepositories request body selected_repository_ids = %+v, want %+v", v.SelectedRepositoryIDs, []int64{5, 20})
 		}
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	resp, err := client.Organizations.AttachCodeSecurityConfigurationsToRepositories(ctx, "o", int64(1), "selected", []int64{5, 20})
+	resp, err := client.Organizations.AttachCodeSecurityConfigurationToRepositories(ctx, "o", int64(1), "selected", []int64{5, 20})
 	if err != nil {
-		t.Errorf("Organizations.AttachCodeSecurityConfigurationsToRepositories returned error: %v", err)
+		t.Errorf("Organizations.AttachCodeSecurityConfigurationToRepositories returned error: %v", err)
 	}
 
 	want := http.StatusAccepted
 	if resp.StatusCode != want {
-		t.Errorf("Organizations.AttachCodeSecurityConfigurationsToRepositories returned status %d, want %d", resp.StatusCode, want)
+		t.Errorf("Organizations.AttachCodeSecurityConfigurationToRepositories returned status %v, want %v", resp.StatusCode, want)
 	}
 
-	const methodName = "AttachCodeSecurityConfigurationsToRepositories"
+	const methodName = "AttachCodeSecurityConfigurationToRepositories"
 	testBadOptions(t, methodName, func() (err error) {
-		_, err = client.Organizations.AttachCodeSecurityConfigurationsToRepositories(ctx, "\n", -1, "", nil)
-		return
+		_, err = client.Organizations.AttachCodeSecurityConfigurationToRepositories(ctx, "\n", -1, "", nil)
+		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		resp, err := client.Organizations.AttachCodeSecurityConfigurationsToRepositories(ctx, "o", 1, "selected", []int64{5, 20})
+		resp, err := client.Organizations.AttachCodeSecurityConfigurationToRepositories(ctx, "o", 1, "selected", []int64{5, 20})
 		return resp, err
 	})
 }
 
 func TestOrganizationsService_SetDefaultCodeSecurityConfiguration(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := t.Context()
 	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/code-security/configurations/1/defaults", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
-		fmt.Fprintf(w, `
+		fmt.Fprint(w, `
 		{
 			"default_for_new_repos": "all",
 			"configuration":
 				{
 					"id": 1,
 					"name": "config1",
+					"description": "desc1",
 					"code_scanning_default_setup": "enabled"
 				}
 		}`)
@@ -389,22 +504,22 @@ func TestOrganizationsService_SetDefaultCodeSecurityConfiguration(t *testing.T) 
 	}
 	wantStatus := http.StatusOK
 	if resp.StatusCode != wantStatus {
-		t.Errorf("Organizations.SetDefaultCodeSecurityConfiguration returned status %d, want %d", resp.StatusCode, wantStatus)
+		t.Errorf("Organizations.SetDefaultCodeSecurityConfiguration returned status %v, want %v", resp.StatusCode, wantStatus)
 	}
 	want := &CodeSecurityConfigurationWithDefaultForNewRepos{
-		DefaultForNewRepos: String("all"),
+		DefaultForNewRepos: Ptr("all"),
 		Configuration: &CodeSecurityConfiguration{
-			ID: Int64(1), Name: String("config1"), CodeScanningDefaultSetup: String("enabled"),
+			ID: Ptr(int64(1)), Name: "config1", Description: "desc1", CodeScanningDefaultSetup: Ptr("enabled"),
 		},
 	}
-	if !reflect.DeepEqual(got, want) {
+	if !cmp.Equal(got, want) {
 		t.Errorf("Organizations.SetDefaultCodeSecurityConfiguration returned %+v, want %+v", got, want)
 	}
 
 	const methodName = "SetDefaultCodeSecurityConfiguration"
 	testBadOptions(t, methodName, func() (err error) {
 		_, _, err = client.Organizations.SetDefaultCodeSecurityConfiguration(ctx, "\n", -1, "")
-		return
+		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
@@ -416,45 +531,53 @@ func TestOrganizationsService_SetDefaultCodeSecurityConfiguration(t *testing.T) 
 	})
 }
 
-func TestOrganizationsService_GetRepositoriesForCodeSecurityConfiguration(t *testing.T) {
+func TestOrganizationsService_ListCodeSecurityConfigurationRepositories(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	opts := &ListCodeSecurityConfigurationRepositoriesOptions{Before: "1", After: "2", PerPage: 30, Status: "attached"}
+	ctx := t.Context()
 	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/orgs/o/code-security/configurations/1/repositories", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
+		testFormValues(t, r, values{"before": "1", "after": "2", "per_page": "30", "status": "attached"})
 		fmt.Fprint(w, `[
 		{
-			"id":8,
-			"name":"repo8"
+			"status": "attached",
+			"repository": {
+				"id":8,
+				"name":"repo8"
+			}
 		},
 		{
-			"id":42,
-			"name":"repo42"
-		}]`)
+			"status": "attached",
+			"repository": {
+				"id":42,
+				"name":"repo42"
+			}
+		}
+	]`)
 	})
 
-	repositories, _, err := client.Organizations.GetRepositoriesForCodeSecurityConfiguration(ctx, "o", 1)
+	attachments, _, err := client.Organizations.ListCodeSecurityConfigurationRepositories(ctx, "o", 1, opts)
 	if err != nil {
-		t.Errorf("Organizations.GetRepositoriesForCodeSecurityConfiguration returned error: %v", err)
+		t.Errorf("Organizations.ListCodeSecurityConfigurationRepositories returned error: %v", err)
+	}
+	want := []*RepositoryAttachment{
+		{Status: Ptr("attached"), Repository: &Repository{ID: Ptr(int64(8)), Name: Ptr("repo8")}},
+		{Status: Ptr("attached"), Repository: &Repository{ID: Ptr(int64(42)), Name: Ptr("repo42")}},
+	}
+	if !cmp.Equal(attachments, want) {
+		t.Errorf("Organizations.ListCodeSecurityConfigurationRepositories returned %+v, want %+v", attachments, want)
 	}
 
-	want := []*Repository{
-		{ID: Int64(8), Name: String("repo8")},
-		{ID: Int64(42), Name: String("repo42")},
-	}
-	if !reflect.DeepEqual(repositories, want) {
-		t.Errorf("Organizations.GetRepositoriesForCodeSecurityConfiguration returned %+v, want %+v", repositories, want)
-	}
-
-	const methodName = "GetRepositoriesForCodeSecurityConfiguration"
+	const methodName = "ListCodeSecurityConfigurationRepositories"
 	testBadOptions(t, methodName, func() (err error) {
-		_, _, err = client.Organizations.GetRepositoriesForCodeSecurityConfiguration(ctx, "\n", -1)
-		return
+		_, _, err = client.Organizations.ListCodeSecurityConfigurationRepositories(ctx, "\n", -1, opts)
+		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Organizations.GetRepositoriesForCodeSecurityConfiguration(ctx, "o", 1)
+		got, resp, err := client.Organizations.ListCodeSecurityConfigurationRepositories(ctx, "o", 1, opts)
 		if got != nil {
 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
 		}
@@ -464,7 +587,7 @@ func TestOrganizationsService_GetRepositoriesForCodeSecurityConfiguration(t *tes
 
 func TestOrganizationsService_GetCodeSecurityConfigurationForRepository(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := t.Context()
 	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/repos/o/repo8/code-security-configuration", func(w http.ResponseWriter, r *http.Request) {
@@ -474,6 +597,7 @@ func TestOrganizationsService_GetCodeSecurityConfigurationForRepository(t *testi
 			"configuration": {
 				"id":42,
 				"name":"config42",
+				"description":"desc1",
 				"code_scanning_default_setup": "enabled"
 			}
 		}`)
@@ -483,19 +607,19 @@ func TestOrganizationsService_GetCodeSecurityConfigurationForRepository(t *testi
 	if err != nil {
 		t.Errorf("Organizations.GetCodeSecurityConfigurationForRepository returned error: %v", err)
 	}
-	c := &CodeSecurityConfiguration{ID: Int64(42), Name: String("config42"), CodeScanningDefaultSetup: String("enabled")}
+	c := &CodeSecurityConfiguration{ID: Ptr(int64(42)), Name: "config42", Description: "desc1", CodeScanningDefaultSetup: Ptr("enabled")}
 	want := &RepositoryCodeSecurityConfiguration{
-		State:         String("attached"),
+		State:         Ptr("attached"),
 		Configuration: c,
 	}
-	if !reflect.DeepEqual(rc, want) {
+	if !cmp.Equal(rc, want) {
 		t.Errorf("Organizations.GetCodeSecurityConfigurationForRepository returned %+v, want %+v", rc, want)
 	}
 
 	const methodName = "GetCodeSecurityConfigurationForRepository"
 	testBadOptions(t, methodName, func() (err error) {
 		_, _, err = client.Organizations.GetCodeSecurityConfigurationForRepository(ctx, "\n", "\n")
-		return
+		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {

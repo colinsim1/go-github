@@ -10,6 +10,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+)
+
+// PropertyValueType represents the type of a custom property value.
+type PropertyValueType string
+
+// Valid values for CustomProperty.ValueType.
+const (
+	PropertyValueTypeString       PropertyValueType = "string"
+	PropertyValueTypeSingleSelect PropertyValueType = "single_select"
+	PropertyValueTypeMultiSelect  PropertyValueType = "multi_select"
+	PropertyValueTypeTrueFalse    PropertyValueType = "true_false"
+	PropertyValueTypeURL          PropertyValueType = "url"
 )
 
 // CustomProperty represents an organization custom property object.
@@ -17,12 +30,16 @@ type CustomProperty struct {
 	// PropertyName is required for most endpoints except when calling CreateOrUpdateCustomProperty;
 	// where this is sent in the path and thus can be omitted.
 	PropertyName *string `json:"property_name,omitempty"`
-	// The type of the value for the property. Can be one of: string, single_select.
-	ValueType string `json:"value_type"`
+	// The URL that can be used to fetch, update, or delete info about this property via the API.
+	URL *string `json:"url,omitempty"`
+	// SourceType is the source type of the property where it has been created. Can be one of: organization, enterprise.
+	SourceType *string `json:"source_type,omitempty"`
+	// The type of the value for the property. Can be one of: string, single_select, multi_select, true_false, url.
+	ValueType PropertyValueType `json:"value_type"`
 	// Whether the property is required.
 	Required *bool `json:"required,omitempty"`
 	// Default value of the property.
-	DefaultValue *string `json:"default_value,omitempty"`
+	DefaultValue any `json:"default_value,omitempty"`
 	// Short description of the property.
 	Description *string `json:"description,omitempty"`
 	// An ordered list of the allowed values of the property. The property can have up to 200
@@ -30,6 +47,56 @@ type CustomProperty struct {
 	AllowedValues []string `json:"allowed_values,omitempty"`
 	// Who can edit the values of the property. Can be one of: org_actors, org_and_repo_actors, nil (null).
 	ValuesEditableBy *string `json:"values_editable_by,omitempty"`
+}
+
+// DefaultValueString returns the DefaultValue as a string if the ValueType is string or single_select or url.
+func (cp CustomProperty) DefaultValueString() (string, bool) {
+	switch cp.ValueType {
+	case PropertyValueTypeString, PropertyValueTypeSingleSelect, PropertyValueTypeURL:
+		s, ok := cp.DefaultValue.(string)
+		return s, ok
+	default:
+		return "", false
+	}
+}
+
+// DefaultValueStrings returns the DefaultValue as a slice of string if the ValueType is multi_select.
+func (cp CustomProperty) DefaultValueStrings() ([]string, bool) {
+	switch cp.ValueType {
+	case PropertyValueTypeMultiSelect:
+		switch v := cp.DefaultValue.(type) {
+		case []string:
+			return v, true
+		case []any:
+			vals := make([]string, len(v))
+			for i, item := range v {
+				s, ok := item.(string)
+				if !ok {
+					return nil, false
+				}
+				vals[i] = s
+			}
+			return vals, true
+		default:
+			return nil, false
+		}
+	default:
+		return nil, false
+	}
+}
+
+// DefaultValueBool returns the DefaultValue as a string if the ValueType is true_false.
+func (cp CustomProperty) DefaultValueBool() (bool, bool) {
+	switch cp.ValueType {
+	case PropertyValueTypeTrueFalse:
+		if s, ok := cp.DefaultValue.(string); ok {
+			b, err := strconv.ParseBool(s)
+			return b, err == nil
+		}
+		return false, false
+	default:
+		return false, false
+	}
 }
 
 // RepoCustomPropertyValue represents a repository custom property value.
@@ -42,8 +109,15 @@ type RepoCustomPropertyValue struct {
 
 // CustomPropertyValue represents a custom property value.
 type CustomPropertyValue struct {
-	PropertyName string      `json:"property_name"`
-	Value        interface{} `json:"value"`
+	PropertyName string `json:"property_name"`
+	Value        any    `json:"value"`
+}
+
+// ListCustomPropertyValuesOptions specifies the optional parameters to the
+// OrganizationsService.ListCustomPropertyValues method.
+type ListCustomPropertyValuesOptions struct {
+	RepositoryQuery string `url:"repository_query,omitempty"`
+	ListOptions
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -64,7 +138,7 @@ func (cpv *CustomPropertyValue) UnmarshalJSON(data []byte) error {
 		cpv.Value = nil
 	case string:
 		cpv.Value = v
-	case []interface{}:
+	case []any:
 		strSlice := make([]string, len(v))
 		for i, item := range v {
 			str, ok := item.(string)
@@ -195,7 +269,7 @@ func (s *OrganizationsService) RemoveCustomProperty(ctx context.Context, org, cu
 // GitHub API docs: https://docs.github.com/rest/orgs/custom-properties#list-custom-property-values-for-organization-repositories
 //
 //meta:operation GET /orgs/{org}/properties/values
-func (s *OrganizationsService) ListCustomPropertyValues(ctx context.Context, org string, opts *ListOptions) ([]*RepoCustomPropertyValue, *Response, error) {
+func (s *OrganizationsService) ListCustomPropertyValues(ctx context.Context, org string, opts *ListCustomPropertyValuesOptions) ([]*RepoCustomPropertyValue, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/properties/values", org)
 	u, err := addOptions(u, opts)
 	if err != nil {

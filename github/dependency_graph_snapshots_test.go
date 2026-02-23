@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -21,47 +20,58 @@ func TestDependencyGraphService_CreateSnapshot(t *testing.T) {
 
 	mux.HandleFunc("/repos/o/r/dependency-graph/snapshots", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "POST")
-		testBody(t, r, `{"version":0,"sha":"ce587453ced02b1526dfb4cb910479d431683101","ref":"refs/heads/main","job":{"correlator":"yourworkflowname_youractionname","id":"yourrunid","html_url":"https://example.com"},"detector":{"name":"octo-detector","version":"0.0.1","url":"https://github.com/octo-org/octo-repo"},"scanned":"2022-06-14T20:25:00Z","manifests":{"package-lock.json":{"name":"package-lock.json","file":{"source_location":"src/package-lock.json"},"resolved":{"@actions/core":{"package_url":"pkg:/npm/%40actions/core@1.1.9","relationship":"direct","scope":"runtime","dependencies":["@actions/http-client"]},"@actions/http-client":{"package_url":"pkg:/npm/%40actions/http-client@1.0.7","relationship":"indirect","scope":"runtime","dependencies":["tunnel"]},"tunnel":{"package_url":"pkg:/npm/tunnel@0.0.6","relationship":"indirect","scope":"runtime"}}}}}`+"\n")
+		testBody(t, r, `{"version":0,"sha":"ce587453ced02b1526dfb4cb910479d431683101","ref":"refs/heads/main","job":{"correlator":"yourworkflowname_youractionname","id":"yourrunid","html_url":"https://example.com"},"detector":{"name":"octo-detector","version":"0.0.1","url":"https://github.com/octo-org/octo-repo"},"scanned":"2022-06-14T20:25:00Z","metadata":{"key1":"value1","key2":"value2"},"manifests":{"package-lock.json":{"name":"package-lock.json","file":{"source_location":"src/package-lock.json"},"metadata":{"key1":"value1","key2":"value2"},"resolved":{"@actions/core":{"package_url":"pkg:/npm/%40actions/core@1.1.9","metadata":{"licenses":"MIT"},"relationship":"direct","scope":"runtime","dependencies":["@actions/http-client"]},"@actions/http-client":{"package_url":"pkg:/npm/%40actions/http-client@1.0.7","relationship":"indirect","scope":"runtime","dependencies":["tunnel"]},"tunnel":{"package_url":"pkg:/npm/tunnel@0.0.6","relationship":"indirect","scope":"runtime"}}}}}`+"\n")
 		fmt.Fprint(w, `{"id":12345,"created_at":"2022-06-14T20:25:01Z","message":"Dependency results for the repo have been successfully updated.","result":"SUCCESS"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	snapshot := &DependencyGraphSnapshot{
 		Version: 0,
-		Sha:     String("ce587453ced02b1526dfb4cb910479d431683101"),
-		Ref:     String("refs/heads/main"),
+		Sha:     Ptr("ce587453ced02b1526dfb4cb910479d431683101"),
+		Ref:     Ptr("refs/heads/main"),
 		Job: &DependencyGraphSnapshotJob{
-			Correlator: String("yourworkflowname_youractionname"),
-			ID:         String("yourrunid"),
-			HTMLURL:    String("https://example.com"),
+			Correlator: Ptr("yourworkflowname_youractionname"),
+			ID:         Ptr("yourrunid"),
+			HTMLURL:    Ptr("https://example.com"),
 		},
 		Detector: &DependencyGraphSnapshotDetector{
-			Name:    String("octo-detector"),
-			Version: String("0.0.1"),
-			URL:     String("https://github.com/octo-org/octo-repo"),
+			Name:    Ptr("octo-detector"),
+			Version: Ptr("0.0.1"),
+			URL:     Ptr("https://github.com/octo-org/octo-repo"),
 		},
-		Scanned: &Timestamp{time.Date(2022, time.June, 14, 20, 25, 00, 0, time.UTC)},
+		Scanned: &Timestamp{time.Date(2022, time.June, 14, 20, 25, 0, 0, time.UTC)},
+		Metadata: map[string]any{
+			"key1": "value1",
+			"key2": "value2",
+		},
 		Manifests: map[string]*DependencyGraphSnapshotManifest{
 			"package-lock.json": {
-				Name: String("package-lock.json"),
-				File: &DependencyGraphSnapshotManifestFile{SourceLocation: String("src/package-lock.json")},
+				Name: Ptr("package-lock.json"),
+				File: &DependencyGraphSnapshotManifestFile{SourceLocation: Ptr("src/package-lock.json")},
+				Metadata: map[string]any{
+					"key1": "value1",
+					"key2": "value2",
+				},
 				Resolved: map[string]*DependencyGraphSnapshotResolvedDependency{
 					"@actions/core": {
-						PackageURL:   String("pkg:/npm/%40actions/core@1.1.9"),
-						Relationship: String("direct"),
-						Scope:        String("runtime"),
+						PackageURL:   Ptr("pkg:/npm/%40actions/core@1.1.9"),
+						Relationship: Ptr("direct"),
+						Scope:        Ptr("runtime"),
+						Metadata: map[string]any{
+							"licenses": "MIT",
+						},
 						Dependencies: []string{"@actions/http-client"},
 					},
 					"@actions/http-client": {
-						PackageURL:   String("pkg:/npm/%40actions/http-client@1.0.7"),
-						Relationship: String("indirect"),
-						Scope:        String("runtime"),
+						PackageURL:   Ptr("pkg:/npm/%40actions/http-client@1.0.7"),
+						Relationship: Ptr("indirect"),
+						Scope:        Ptr("runtime"),
 						Dependencies: []string{"tunnel"},
 					},
 					"tunnel": {
-						PackageURL:   String("pkg:/npm/tunnel@0.0.6"),
-						Relationship: String("indirect"),
-						Scope:        String("runtime"),
+						PackageURL:   Ptr("pkg:/npm/tunnel@0.0.6"),
+						Relationship: Ptr("indirect"),
+						Scope:        Ptr("runtime"),
 					},
 				},
 			},
@@ -75,9 +85,9 @@ func TestDependencyGraphService_CreateSnapshot(t *testing.T) {
 
 	want := &DependencyGraphSnapshotCreationData{
 		ID:        12345,
-		CreatedAt: &Timestamp{time.Date(2022, time.June, 14, 20, 25, 01, 0, time.UTC)},
-		Message:   String("Dependency results for the repo have been successfully updated."),
-		Result:    String("SUCCESS"),
+		CreatedAt: &Timestamp{time.Date(2022, time.June, 14, 20, 25, 1, 0, time.UTC)},
+		Message:   Ptr("Dependency results for the repo have been successfully updated."),
+		Result:    Ptr("SUCCESS"),
 	}
 	if !cmp.Equal(snapshotCreationData, want) {
 		t.Errorf("DependencyGraph.CreateSnapshot returned %+v, want %+v", snapshotCreationData, want)

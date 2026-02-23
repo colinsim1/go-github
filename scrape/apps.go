@@ -18,13 +18,13 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/google/go-github/v66/github"
+	"github.com/google/go-github/v83/github"
 )
 
 // AppRestrictionsEnabled returns whether the specified organization has
 // restricted third-party application access.
 func (c *Client) AppRestrictionsEnabled(org string) (bool, error) {
-	doc, err := c.get("/organizations/%s/settings/oauth_application_policy", org)
+	doc, err := c.get("/organizations/%v/settings/oauth_application_policy", org)
 	if err != nil {
 		return false, err
 	}
@@ -46,14 +46,14 @@ func (c *Client) AppRestrictionsEnabled(org string) (bool, error) {
 
 // ListOAuthApps lists the reviewed OAuth Applications for the
 // specified organization (whether approved or denied).
-func (c *Client) ListOAuthApps(org string) ([]OAuthApp, error) {
-	doc, err := c.get("/organizations/%s/settings/oauth_application_policy", org)
+func (c *Client) ListOAuthApps(org string) ([]*OAuthApp, error) {
+	doc, err := c.get("/organizations/%v/settings/oauth_application_policy", org)
 	if err != nil {
 		return nil, err
 	}
 
-	var apps []OAuthApp
-	doc.Find(".oauth-application-allowlist ul > li").Each(func(i int, s *goquery.Selection) {
+	var apps []*OAuthApp
+	doc.Find(".oauth-application-allowlist ul > li").Each(func(_ int, s *goquery.Selection) {
 		var app OAuthApp
 		app.Name = s.Find(".request-info strong").First().Text()
 		app.Description = s.Find(".request-info .application-description").Text()
@@ -73,7 +73,7 @@ func (c *Client) ListOAuthApps(org string) ([]OAuthApp, error) {
 		} else if r := s.Find(".request-indicator .denied-request"); r.Length() > 0 {
 			app.State = OAuthAppDenied
 		}
-		apps = append(apps, app)
+		apps = append(apps, &app)
 	})
 
 	return apps, nil

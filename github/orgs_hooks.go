@@ -7,6 +7,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -42,7 +43,7 @@ func (s *OrganizationsService) ListHooks(ctx context.Context, org string, opts *
 //
 //meta:operation GET /orgs/{org}/hooks/{hook_id}
 func (s *OrganizationsService) GetHook(ctx context.Context, org string, id int64) (*Hook, *Response, error) {
-	u := fmt.Sprintf("orgs/%v/hooks/%d", org, id)
+	u := fmt.Sprintf("orgs/%v/hooks/%v", org, id)
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, nil, err
@@ -67,6 +68,10 @@ func (s *OrganizationsService) GetHook(ctx context.Context, org string, id int64
 //
 //meta:operation POST /orgs/{org}/hooks
 func (s *OrganizationsService) CreateHook(ctx context.Context, org string, hook *Hook) (*Hook, *Response, error) {
+	if hook == nil {
+		return nil, nil, errors.New("hook must be provided")
+	}
+
 	u := fmt.Sprintf("orgs/%v/hooks", org)
 
 	hookReq := &createHookRequest{
@@ -96,7 +101,7 @@ func (s *OrganizationsService) CreateHook(ctx context.Context, org string, hook 
 //
 //meta:operation PATCH /orgs/{org}/hooks/{hook_id}
 func (s *OrganizationsService) EditHook(ctx context.Context, org string, id int64, hook *Hook) (*Hook, *Response, error) {
-	u := fmt.Sprintf("orgs/%v/hooks/%d", org, id)
+	u := fmt.Sprintf("orgs/%v/hooks/%v", org, id)
 	req, err := s.client.NewRequest("PATCH", u, hook)
 	if err != nil {
 		return nil, nil, err
@@ -117,7 +122,7 @@ func (s *OrganizationsService) EditHook(ctx context.Context, org string, id int6
 //
 //meta:operation POST /orgs/{org}/hooks/{hook_id}/pings
 func (s *OrganizationsService) PingHook(ctx context.Context, org string, id int64) (*Response, error) {
-	u := fmt.Sprintf("orgs/%v/hooks/%d/pings", org, id)
+	u := fmt.Sprintf("orgs/%v/hooks/%v/pings", org, id)
 	req, err := s.client.NewRequest("POST", u, nil)
 	if err != nil {
 		return nil, err
@@ -132,7 +137,7 @@ func (s *OrganizationsService) PingHook(ctx context.Context, org string, id int6
 //
 //meta:operation DELETE /orgs/{org}/hooks/{hook_id}
 func (s *OrganizationsService) DeleteHook(ctx context.Context, org string, id int64) (*Response, error) {
-	u := fmt.Sprintf("orgs/%v/hooks/%d", org, id)
+	u := fmt.Sprintf("orgs/%v/hooks/%v", org, id)
 	req, err := s.client.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return nil, err

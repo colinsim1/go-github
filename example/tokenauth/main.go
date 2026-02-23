@@ -15,7 +15,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/google/go-github/v67/github"
+	"github.com/google/go-github/v83/github"
 	"golang.org/x/term"
 )
 

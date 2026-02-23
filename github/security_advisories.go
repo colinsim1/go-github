@@ -8,9 +8,14 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
+// SecurityAdvisoriesService handles communication with the security advisories
+// related methods of the GitHub API.
+//
+// GitHub API docs: https://docs.github.com/rest/security-advisories
 type SecurityAdvisoriesService service
 
 // SecurityAdvisorySubmission represents the Security Advisory Submission.
@@ -139,7 +144,7 @@ func (s *SecurityAdvisoriesService) RequestCVE(ctx context.Context, owner, repo,
 
 	resp, err := s.client.Do(ctx, req, nil)
 	if err != nil {
-		if _, ok := err.(*AcceptedError); ok {
+		if errors.As(err, new(*AcceptedError)) {
 			return resp, nil
 		}
 
@@ -166,7 +171,8 @@ func (s *SecurityAdvisoriesService) CreateTemporaryPrivateFork(ctx context.Conte
 	fork := new(Repository)
 	resp, err := s.client.Do(ctx, req, fork)
 	if err != nil {
-		if aerr, ok := err.(*AcceptedError); ok {
+		var aerr *AcceptedError
+		if errors.As(err, &aerr) {
 			if err := json.Unmarshal(aerr.Raw, fork); err != nil {
 				return fork, resp, err
 			}
@@ -184,9 +190,9 @@ func (s *SecurityAdvisoriesService) CreateTemporaryPrivateFork(ctx context.Conte
 // GitHub API docs: https://docs.github.com/rest/security-advisories/repository-advisories#list-repository-security-advisories-for-an-organization
 //
 //meta:operation GET /orgs/{org}/security-advisories
-func (s *SecurityAdvisoriesService) ListRepositorySecurityAdvisoriesForOrg(ctx context.Context, org string, opt *ListRepositorySecurityAdvisoriesOptions) ([]*SecurityAdvisory, *Response, error) {
+func (s *SecurityAdvisoriesService) ListRepositorySecurityAdvisoriesForOrg(ctx context.Context, org string, opts *ListRepositorySecurityAdvisoriesOptions) ([]*SecurityAdvisory, *Response, error) {
 	url := fmt.Sprintf("orgs/%v/security-advisories", org)
-	url, err := addOptions(url, opt)
+	url, err := addOptions(url, opts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -210,9 +216,9 @@ func (s *SecurityAdvisoriesService) ListRepositorySecurityAdvisoriesForOrg(ctx c
 // GitHub API docs: https://docs.github.com/rest/security-advisories/repository-advisories#list-repository-security-advisories
 //
 //meta:operation GET /repos/{owner}/{repo}/security-advisories
-func (s *SecurityAdvisoriesService) ListRepositorySecurityAdvisories(ctx context.Context, owner, repo string, opt *ListRepositorySecurityAdvisoriesOptions) ([]*SecurityAdvisory, *Response, error) {
+func (s *SecurityAdvisoriesService) ListRepositorySecurityAdvisories(ctx context.Context, owner, repo string, opts *ListRepositorySecurityAdvisoriesOptions) ([]*SecurityAdvisory, *Response, error) {
 	url := fmt.Sprintf("repos/%v/%v/security-advisories", owner, repo)
-	url, err := addOptions(url, opt)
+	url, err := addOptions(url, opts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -263,7 +269,7 @@ func (s *SecurityAdvisoriesService) ListGlobalSecurityAdvisories(ctx context.Con
 //
 //meta:operation GET /advisories/{ghsa_id}
 func (s *SecurityAdvisoriesService) GetGlobalSecurityAdvisories(ctx context.Context, ghsaID string) (*GlobalSecurityAdvisory, *Response, error) {
-	url := fmt.Sprintf("advisories/%s", ghsaID)
+	url := fmt.Sprintf("advisories/%v", ghsaID)
 	req, err := s.client.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, nil, err

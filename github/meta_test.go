@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -21,11 +20,12 @@ func TestAPIMeta_Marshal(t *testing.T) {
 	a := &APIMeta{
 		Hooks:                            []string{"h"},
 		Git:                              []string{"g"},
-		VerifiablePasswordAuthentication: Bool(true),
+		VerifiablePasswordAuthentication: Ptr(true),
 		Pages:                            []string{"p"},
 		Importer:                         []string{"i"},
 		GithubEnterpriseImporter:         []string{"gei"},
 		Actions:                          []string{"a"},
+		ActionsMacos:                     []string{"example.com/1", "example.com/2"},
 		Dependabot:                       []string{"d"},
 		SSHKeyFingerprints:               map[string]string{"a": "f"},
 		SSHKeys:                          []string{"k"},
@@ -36,16 +36,16 @@ func TestAPIMeta_Marshal(t *testing.T) {
 				"*.github.com",
 				"*.github.dev",
 				"*.github.io",
-				"*.githubassets.com",
-				"*.githubusercontent.com",
+				"*.example.com/assets",
+				"*.example.com",
 			},
 			ArtifactAttestations: &APIMetaArtifactAttestations{
 				TrustDomain: "",
 				Services: []string{
-					"*.actions.githubusercontent.com",
+					"*.actions.github.com",
 					"tuf-repo.github.com",
-					"fulcio.githubapp.com",
-					"timestamp.githubapp.com",
+					"fulcio.github.com",
+					"timestamp.github.com",
 				},
 			},
 		},
@@ -58,12 +58,13 @@ func TestAPIMeta_Marshal(t *testing.T) {
 		"importer":["i"],
 		"github_enterprise_importer":["gei"],
 		"actions":["a"],
+    "actions_macos":["example.com/1", "example.com/2"],
 		"dependabot":["d"],
 		"ssh_key_fingerprints":{"a":"f"},
 		"ssh_keys":["k"],
 		"api":["a"],
 		"web":["w"],
-		"domains":{"website":["*.github.com","*.github.dev","*.github.io","*.githubassets.com","*.githubusercontent.com"],"artifact_attestations":{"trust_domain":"","services":["*.actions.githubusercontent.com","tuf-repo.github.com","fulcio.githubapp.com","timestamp.githubapp.com"]}}
+		"domains":{"website":["*.github.com","*.github.dev","*.github.io","*.example.com/assets","*.example.com"],"artifact_attestations":{"trust_domain":"","services":["*.actions.github.com","tuf-repo.github.com","fulcio.github.com","timestamp.github.com"]}}
 	}`
 
 	testJSONMarshal(t, a, want)
@@ -75,10 +76,10 @@ func TestMetaService_Get(t *testing.T) {
 
 	mux.HandleFunc("/meta", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		fmt.Fprint(w, `{"web":["w"],"api":["a"],"hooks":["h"], "git":["g"], "pages":["p"], "importer":["i"], "github_enterprise_importer": ["gei"], "actions":["a"], "dependabot":["d"], "verifiable_password_authentication": true, "domains":{"website":["*.github.com","*.github.dev","*.github.io","*.githubassets.com","*.githubusercontent.com"],"artifact_attestations":{"trust_domain":"","services":["*.actions.githubusercontent.com","tuf-repo.github.com","fulcio.githubapp.com","timestamp.githubapp.com"]}}}`)
+		fmt.Fprint(w, `{"web":["w"],"api":["a"],"hooks":["h"], "git":["g"], "pages":["p"], "importer":["i"], "github_enterprise_importer": ["gei"], "actions":["a"], "actions_macos": ["example.com/1", "example.com/2"], "dependabot":["d"], "verifiable_password_authentication": true, "domains":{"website":["*.github.com","*.github.dev","*.github.io","*.example.com/assets","*.example.com"],"artifact_attestations":{"trust_domain":"","services":["*.actions.github.com","tuf-repo.github.com","fulcio.github.com","timestamp.github.com"]}}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	meta, _, err := client.Meta.Get(ctx)
 	if err != nil {
 		t.Errorf("Get returned error: %v", err)
@@ -91,6 +92,7 @@ func TestMetaService_Get(t *testing.T) {
 		Importer:                 []string{"i"},
 		GithubEnterpriseImporter: []string{"gei"},
 		Actions:                  []string{"a"},
+		ActionsMacos:             []string{"example.com/1", "example.com/2"},
 		Dependabot:               []string{"d"},
 		API:                      []string{"a"},
 		Web:                      []string{"w"},
@@ -99,21 +101,21 @@ func TestMetaService_Get(t *testing.T) {
 				"*.github.com",
 				"*.github.dev",
 				"*.github.io",
-				"*.githubassets.com",
-				"*.githubusercontent.com",
+				"*.example.com/assets",
+				"*.example.com",
 			},
 			ArtifactAttestations: &APIMetaArtifactAttestations{
 				TrustDomain: "",
 				Services: []string{
-					"*.actions.githubusercontent.com",
+					"*.actions.github.com",
 					"tuf-repo.github.com",
-					"fulcio.githubapp.com",
-					"timestamp.githubapp.com",
+					"fulcio.github.com",
+					"timestamp.github.com",
 				},
 			},
 		},
 
-		VerifiablePasswordAuthentication: Bool(true),
+		VerifiablePasswordAuthentication: Ptr(true),
 	}
 	if !cmp.Equal(want, meta) {
 		t.Errorf("Get returned %+v, want %+v", meta, want)
@@ -143,7 +145,7 @@ func TestMetaService_Octocat(t *testing.T) {
 		fmt.Fprint(w, output)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Meta.Octocat(ctx, input)
 	if err != nil {
 		t.Errorf("Octocat returned error: %v", err)
@@ -175,7 +177,7 @@ func TestMetaService_Zen(t *testing.T) {
 		fmt.Fprint(w, output)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Meta.Zen(ctx)
 	if err != nil {
 		t.Errorf("Zen returned error: %v", err)

@@ -32,15 +32,15 @@ type Deployment struct {
 
 // DeploymentRequest represents a deployment request.
 type DeploymentRequest struct {
-	Ref                   *string     `json:"ref,omitempty"`
-	Task                  *string     `json:"task,omitempty"`
-	AutoMerge             *bool       `json:"auto_merge,omitempty"`
-	RequiredContexts      *[]string   `json:"required_contexts,omitempty"`
-	Payload               interface{} `json:"payload,omitempty"`
-	Environment           *string     `json:"environment,omitempty"`
-	Description           *string     `json:"description,omitempty"`
-	TransientEnvironment  *bool       `json:"transient_environment,omitempty"`
-	ProductionEnvironment *bool       `json:"production_environment,omitempty"`
+	Ref                   *string   `json:"ref,omitempty"`
+	Task                  *string   `json:"task,omitempty"`
+	AutoMerge             *bool     `json:"auto_merge,omitempty"`
+	RequiredContexts      *[]string `json:"required_contexts,omitempty"`
+	Payload               any       `json:"payload,omitempty"`
+	Environment           *string   `json:"environment,omitempty"`
+	Description           *string   `json:"description,omitempty"`
+	TransientEnvironment  *bool     `json:"transient_environment,omitempty"`
+	ProductionEnvironment *bool     `json:"production_environment,omitempty"`
 }
 
 // DeploymentsListOptions specifies the optional parameters to the
@@ -49,7 +49,7 @@ type DeploymentsListOptions struct {
 	// SHA of the Deployment.
 	SHA string `url:"sha,omitempty"`
 
-	// List deployments for a given ref.
+	// List deployments for a given ref. This can be a branch, tag, or SHA.
 	Ref string `url:"ref,omitempty"`
 
 	// List deployments for a given task.
@@ -122,7 +122,6 @@ func (s *RepositoriesService) CreateDeployment(ctx context.Context, owner, repo 
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept headers when APIs fully launch.
 	acceptHeaders := []string{mediaTypeDeploymentStatusPreview, mediaTypeExpandDeploymentStatusPreview}
 	req.Header.Set("Accept", strings.Join(acceptHeaders, ", "))
 
@@ -198,7 +197,6 @@ func (s *RepositoriesService) ListDeploymentStatuses(ctx context.Context, owner,
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept headers when APIs fully launch.
 	acceptHeaders := []string{mediaTypeDeploymentStatusPreview, mediaTypeExpandDeploymentStatusPreview}
 	req.Header.Set("Accept", strings.Join(acceptHeaders, ", "))
 
@@ -224,7 +222,6 @@ func (s *RepositoriesService) GetDeploymentStatus(ctx context.Context, owner, re
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept headers when APIs fully launch.
 	acceptHeaders := []string{mediaTypeDeploymentStatusPreview, mediaTypeExpandDeploymentStatusPreview}
 	req.Header.Set("Accept", strings.Join(acceptHeaders, ", "))
 
@@ -250,7 +247,6 @@ func (s *RepositoriesService) CreateDeploymentStatus(ctx context.Context, owner,
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept headers when APIs fully launch.
 	acceptHeaders := []string{mediaTypeDeploymentStatusPreview, mediaTypeExpandDeploymentStatusPreview}
 	req.Header.Set("Accept", strings.Join(acceptHeaders, ", "))
 

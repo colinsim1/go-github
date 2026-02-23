@@ -37,6 +37,10 @@ type PullRequestComment struct {
 	UpdatedAt           *Timestamp `json:"updated_at,omitempty"`
 	// AuthorAssociation is the comment author's relationship to the pull request's repository.
 	// Possible values are "COLLABORATOR", "CONTRIBUTOR", "FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR", "MEMBER", "OWNER", or "NONE".
+	//
+	// Deprecated: GitHub will remove this field from Events API payloads on October 7, 2025.
+	// Use the Pull Request Comments REST API endpoint to retrieve this information.
+	// See: https://docs.github.com/rest/pulls/comments#get-a-review-comment-for-a-pull-request
 	AuthorAssociation *string `json:"author_association,omitempty"`
 	URL               *string `json:"url,omitempty"`
 	HTMLURL           *string `json:"html_url,omitempty"`
@@ -69,6 +73,7 @@ type PullRequestListCommentsOptions struct {
 // the repository.
 //
 // GitHub API docs: https://docs.github.com/rest/pulls/comments#list-review-comments-in-a-repository
+//
 // GitHub API docs: https://docs.github.com/rest/pulls/comments#list-review-comments-on-a-pull-request
 //
 //meta:operation GET /repos/{owner}/{repo}/pulls/comments
@@ -78,7 +83,7 @@ func (s *PullRequestsService) ListComments(ctx context.Context, owner, repo stri
 	if number == 0 {
 		u = fmt.Sprintf("repos/%v/%v/pulls/comments", owner, repo)
 	} else {
-		u = fmt.Sprintf("repos/%v/%v/pulls/%d/comments", owner, repo, number)
+		u = fmt.Sprintf("repos/%v/%v/pulls/%v/comments", owner, repo, number)
 	}
 	u, err := addOptions(u, opts)
 	if err != nil {
@@ -90,7 +95,6 @@ func (s *PullRequestsService) ListComments(ctx context.Context, owner, repo stri
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	acceptHeaders := []string{mediaTypeReactionsPreview, mediaTypeMultiLineCommentsPreview}
 	req.Header.Set("Accept", strings.Join(acceptHeaders, ", "))
 
@@ -109,13 +113,12 @@ func (s *PullRequestsService) ListComments(ctx context.Context, owner, repo stri
 //
 //meta:operation GET /repos/{owner}/{repo}/pulls/comments/{comment_id}
 func (s *PullRequestsService) GetComment(ctx context.Context, owner, repo string, commentID int64) (*PullRequestComment, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/pulls/comments/%d", owner, repo, commentID)
+	u := fmt.Sprintf("repos/%v/%v/pulls/comments/%v", owner, repo, commentID)
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	acceptHeaders := []string{mediaTypeReactionsPreview, mediaTypeMultiLineCommentsPreview}
 	req.Header.Set("Accept", strings.Join(acceptHeaders, ", "))
 
@@ -134,12 +137,11 @@ func (s *PullRequestsService) GetComment(ctx context.Context, owner, repo string
 //
 //meta:operation POST /repos/{owner}/{repo}/pulls/{pull_number}/comments
 func (s *PullRequestsService) CreateComment(ctx context.Context, owner, repo string, number int, comment *PullRequestComment) (*PullRequestComment, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/pulls/%d/comments", owner, repo, number)
+	u := fmt.Sprintf("repos/%v/%v/pulls/%v/comments", owner, repo, number)
 	req, err := s.client.NewRequest("POST", u, comment)
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO: remove custom Accept headers when their respective API fully launches.
 	acceptHeaders := []string{mediaTypeReactionsPreview, mediaTypeMultiLineCommentsPreview}
 	req.Header.Set("Accept", strings.Join(acceptHeaders, ", "))
 
@@ -165,7 +167,7 @@ func (s *PullRequestsService) CreateCommentInReplyTo(ctx context.Context, owner,
 		Body:      body,
 		InReplyTo: commentID,
 	}
-	u := fmt.Sprintf("repos/%v/%v/pulls/%d/comments", owner, repo, number)
+	u := fmt.Sprintf("repos/%v/%v/pulls/%v/comments", owner, repo, number)
 	req, err := s.client.NewRequest("POST", u, comment)
 	if err != nil {
 		return nil, nil, err
@@ -187,7 +189,7 @@ func (s *PullRequestsService) CreateCommentInReplyTo(ctx context.Context, owner,
 //
 //meta:operation PATCH /repos/{owner}/{repo}/pulls/comments/{comment_id}
 func (s *PullRequestsService) EditComment(ctx context.Context, owner, repo string, commentID int64, comment *PullRequestComment) (*PullRequestComment, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/pulls/comments/%d", owner, repo, commentID)
+	u := fmt.Sprintf("repos/%v/%v/pulls/comments/%v", owner, repo, commentID)
 	req, err := s.client.NewRequest("PATCH", u, comment)
 	if err != nil {
 		return nil, nil, err
@@ -208,7 +210,7 @@ func (s *PullRequestsService) EditComment(ctx context.Context, owner, repo strin
 //
 //meta:operation DELETE /repos/{owner}/{repo}/pulls/comments/{comment_id}
 func (s *PullRequestsService) DeleteComment(ctx context.Context, owner, repo string, commentID int64) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/pulls/comments/%d", owner, repo, commentID)
+	u := fmt.Sprintf("repos/%v/%v/pulls/comments/%v", owner, repo, commentID)
 	req, err := s.client.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return nil, err

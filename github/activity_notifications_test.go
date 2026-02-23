@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -35,16 +34,16 @@ func TestActivityService_ListNotification(t *testing.T) {
 	opt := &NotificationListOptions{
 		All:           true,
 		Participating: true,
-		Since:         time.Date(2006, time.January, 02, 15, 04, 05, 0, time.UTC),
-		Before:        time.Date(2007, time.March, 04, 15, 04, 05, 0, time.UTC),
+		Since:         time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC),
+		Before:        time.Date(2007, time.March, 4, 15, 4, 5, 0, time.UTC),
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	notifications, _, err := client.Activity.ListNotifications(ctx, opt)
 	if err != nil {
 		t.Errorf("Activity.ListNotifications returned error: %v", err)
 	}
 
-	want := []*Notification{{ID: String("1"), Subject: &NotificationSubject{Title: String("t")}}}
+	want := []*Notification{{ID: Ptr("1"), Subject: &NotificationSubject{Title: Ptr("t")}}}
 	if !cmp.Equal(notifications, want) {
 		t.Errorf("Activity.ListNotifications returned %+v, want %+v", notifications, want)
 	}
@@ -68,13 +67,13 @@ func TestActivityService_ListRepositoryNotifications(t *testing.T) {
 		fmt.Fprint(w, `[{"id":"1"}]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	notifications, _, err := client.Activity.ListRepositoryNotifications(ctx, "o", "r", nil)
 	if err != nil {
 		t.Errorf("Activity.ListRepositoryNotifications returned error: %v", err)
 	}
 
-	want := []*Notification{{ID: String("1")}}
+	want := []*Notification{{ID: Ptr("1")}}
 	if !cmp.Equal(notifications, want) {
 		t.Errorf("Activity.ListRepositoryNotifications returned %+v, want %+v", notifications, want)
 	}
@@ -106,16 +105,35 @@ func TestActivityService_MarkNotificationsRead(t *testing.T) {
 		w.WriteHeader(http.StatusResetContent)
 	})
 
-	ctx := context.Background()
-	_, err := client.Activity.MarkNotificationsRead(ctx, Timestamp{time.Date(2006, time.January, 02, 15, 04, 05, 0, time.UTC)})
+	ctx := t.Context()
+	_, err := client.Activity.MarkNotificationsRead(ctx, Timestamp{time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC)})
 	if err != nil {
 		t.Errorf("Activity.MarkNotificationsRead returned error: %v", err)
 	}
 
 	const methodName = "MarkNotificationsRead"
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		return client.Activity.MarkNotificationsRead(ctx, Timestamp{time.Date(2006, time.January, 02, 15, 04, 05, 0, time.UTC)})
+		return client.Activity.MarkNotificationsRead(ctx, Timestamp{time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC)})
 	})
+}
+
+func TestActivityService_MarkNotificationsRead_EmptyLastReadAt(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/notifications", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "PUT")
+		testHeader(t, r, "Content-Type", "application/json")
+		testBody(t, r, `{}`+"\n")
+
+		w.WriteHeader(http.StatusResetContent)
+	})
+
+	ctx := t.Context()
+	_, err := client.Activity.MarkNotificationsRead(ctx, Timestamp{})
+	if err != nil {
+		t.Errorf("Activity.MarkNotificationsRead returned error: %v", err)
+	}
 }
 
 func TestActivityService_MarkRepositoryNotificationsRead(t *testing.T) {
@@ -130,21 +148,40 @@ func TestActivityService_MarkRepositoryNotificationsRead(t *testing.T) {
 		w.WriteHeader(http.StatusResetContent)
 	})
 
-	ctx := context.Background()
-	_, err := client.Activity.MarkRepositoryNotificationsRead(ctx, "o", "r", Timestamp{time.Date(2006, time.January, 02, 15, 04, 05, 0, time.UTC)})
+	ctx := t.Context()
+	_, err := client.Activity.MarkRepositoryNotificationsRead(ctx, "o", "r", Timestamp{time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC)})
 	if err != nil {
 		t.Errorf("Activity.MarkRepositoryNotificationsRead returned error: %v", err)
 	}
 
 	const methodName = "MarkRepositoryNotificationsRead"
 	testBadOptions(t, methodName, func() (err error) {
-		_, err = client.Activity.MarkRepositoryNotificationsRead(ctx, "\n", "\n", Timestamp{time.Date(2006, time.January, 02, 15, 04, 05, 0, time.UTC)})
+		_, err = client.Activity.MarkRepositoryNotificationsRead(ctx, "\n", "\n", Timestamp{time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC)})
 		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		return client.Activity.MarkRepositoryNotificationsRead(ctx, "o", "r", Timestamp{time.Date(2006, time.January, 02, 15, 04, 05, 0, time.UTC)})
+		return client.Activity.MarkRepositoryNotificationsRead(ctx, "o", "r", Timestamp{time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC)})
 	})
+}
+
+func TestActivityService_MarkRepositoryNotificationsRead_EmptyLastReadAt(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/repos/o/r/notifications", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "PUT")
+		testHeader(t, r, "Content-Type", "application/json")
+		testBody(t, r, `{}`+"\n")
+
+		w.WriteHeader(http.StatusResetContent)
+	})
+
+	ctx := t.Context()
+	_, err := client.Activity.MarkRepositoryNotificationsRead(ctx, "o", "r", Timestamp{})
+	if err != nil {
+		t.Errorf("Activity.MarkRepositoryNotificationsRead returned error: %v", err)
+	}
 }
 
 func TestActivityService_GetThread(t *testing.T) {
@@ -156,13 +193,13 @@ func TestActivityService_GetThread(t *testing.T) {
 		fmt.Fprint(w, `{"id":"1"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	notification, _, err := client.Activity.GetThread(ctx, "1")
 	if err != nil {
 		t.Errorf("Activity.GetThread returned error: %v", err)
 	}
 
-	want := &Notification{ID: String("1")}
+	want := &Notification{ID: Ptr("1")}
 	if !cmp.Equal(notification, want) {
 		t.Errorf("Activity.GetThread returned %+v, want %+v", notification, want)
 	}
@@ -191,7 +228,7 @@ func TestActivityService_MarkThreadRead(t *testing.T) {
 		w.WriteHeader(http.StatusResetContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Activity.MarkThreadRead(ctx, "1")
 	if err != nil {
 		t.Errorf("Activity.MarkThreadRead returned error: %v", err)
@@ -217,7 +254,7 @@ func TestActivityService_MarkThreadDone(t *testing.T) {
 		w.WriteHeader(http.StatusResetContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Activity.MarkThreadDone(ctx, 1)
 	if err != nil {
 		t.Errorf("Activity.MarkThreadDone returned error: %v", err)
@@ -243,13 +280,13 @@ func TestActivityService_GetThreadSubscription(t *testing.T) {
 		fmt.Fprint(w, `{"subscribed":true}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	sub, _, err := client.Activity.GetThreadSubscription(ctx, "1")
 	if err != nil {
 		t.Errorf("Activity.GetThreadSubscription returned error: %v", err)
 	}
 
-	want := &Subscription{Subscribed: Bool(true)}
+	want := &Subscription{Subscribed: Ptr(true)}
 	if !cmp.Equal(sub, want) {
 		t.Errorf("Activity.GetThreadSubscription returned %+v, want %+v", sub, want)
 	}
@@ -273,7 +310,7 @@ func TestActivityService_SetThreadSubscription(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	input := &Subscription{Subscribed: Bool(true)}
+	input := &Subscription{Subscribed: Ptr(true)}
 
 	mux.HandleFunc("/notifications/threads/1/subscription", func(w http.ResponseWriter, r *http.Request) {
 		v := new(Subscription)
@@ -287,13 +324,13 @@ func TestActivityService_SetThreadSubscription(t *testing.T) {
 		fmt.Fprint(w, `{"ignored":true}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	sub, _, err := client.Activity.SetThreadSubscription(ctx, "1", input)
 	if err != nil {
 		t.Errorf("Activity.SetThreadSubscription returned error: %v", err)
 	}
 
-	want := &Subscription{Ignored: Bool(true)}
+	want := &Subscription{Ignored: Ptr(true)}
 	if !cmp.Equal(sub, want) {
 		t.Errorf("Activity.SetThreadSubscription returned %+v, want %+v", sub, want)
 	}
@@ -322,7 +359,7 @@ func TestActivityService_DeleteThreadSubscription(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Activity.DeleteThreadSubscription(ctx, "1")
 	if err != nil {
 		t.Errorf("Activity.DeleteThreadSubscription returned error: %v", err)
@@ -344,23 +381,23 @@ func TestNotification_Marshal(t *testing.T) {
 	testJSONMarshal(t, &Notification{}, "{}")
 
 	u := &Notification{
-		ID: String("id"),
+		ID: Ptr("id"),
 		Repository: &Repository{
-			ID:   Int64(1),
-			URL:  String("u"),
-			Name: String("n"),
+			ID:   Ptr(int64(1)),
+			URL:  Ptr("u"),
+			Name: Ptr("n"),
 		},
 		Subject: &NotificationSubject{
-			Title:            String("t"),
-			URL:              String("u"),
-			LatestCommentURL: String("l"),
-			Type:             String("t"),
+			Title:            Ptr("t"),
+			URL:              Ptr("u"),
+			LatestCommentURL: Ptr("l"),
+			Type:             Ptr("t"),
 		},
-		Reason:     String("r"),
-		Unread:     Bool(true),
+		Reason:     Ptr("r"),
+		Unread:     Ptr(true),
 		UpdatedAt:  &Timestamp{referenceTime},
 		LastReadAt: &Timestamp{referenceTime},
-		URL:        String("u"),
+		URL:        Ptr("u"),
 	}
 
 	want := `{
@@ -391,10 +428,10 @@ func TestNotificationSubject_Marshal(t *testing.T) {
 	testJSONMarshal(t, &NotificationSubject{}, "{}")
 
 	u := &NotificationSubject{
-		Title:            String("t"),
-		URL:              String("u"),
-		LatestCommentURL: String("l"),
-		Type:             String("t"),
+		Title:            Ptr("t"),
+		URL:              Ptr("u"),
+		LatestCommentURL: Ptr("l"),
+		Type:             Ptr("t"),
 	}
 
 	want := `{

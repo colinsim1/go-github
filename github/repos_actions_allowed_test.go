@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,12 +23,12 @@ func TestRepositoryService_GetActionsAllowed(t *testing.T) {
 		fmt.Fprint(w, `{"github_owned_allowed":true, "verified_allowed":false, "patterns_allowed":["a/b"]}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	org, _, err := client.Repositories.GetActionsAllowed(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Repositories.GetActionsAllowed returned error: %v", err)
 	}
-	want := &ActionsAllowed{GithubOwnedAllowed: Bool(true), VerifiedAllowed: Bool(false), PatternsAllowed: []string{"a/b"}}
+	want := &ActionsAllowed{GithubOwnedAllowed: Ptr(true), VerifiedAllowed: Ptr(false), PatternsAllowed: []string{"a/b"}}
 	if !cmp.Equal(org, want) {
 		t.Errorf("Repositories.GetActionsAllowed returned %+v, want %+v", org, want)
 	}
@@ -49,11 +48,11 @@ func TestRepositoryService_GetActionsAllowed(t *testing.T) {
 	})
 }
 
-func TestRepositoriesService_EditActionsAllowed(t *testing.T) {
+func TestRepositoriesService_UpdateActionsAllowed(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	input := &ActionsAllowed{GithubOwnedAllowed: Bool(true), VerifiedAllowed: Bool(false), PatternsAllowed: []string{"a/b"}}
+	input := &ActionsAllowed{GithubOwnedAllowed: Ptr(true), VerifiedAllowed: Ptr(false), PatternsAllowed: []string{"a/b"}}
 
 	mux.HandleFunc("/repos/o/r/actions/permissions/selected-actions", func(w http.ResponseWriter, r *http.Request) {
 		v := new(ActionsAllowed)
@@ -67,18 +66,18 @@ func TestRepositoriesService_EditActionsAllowed(t *testing.T) {
 		fmt.Fprint(w, `{"github_owned_allowed":true, "verified_allowed":false, "patterns_allowed":["a/b"]}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	org, _, err := client.Repositories.EditActionsAllowed(ctx, "o", "r", *input)
 	if err != nil {
-		t.Errorf("Repositories.EditActionsAllowed returned error: %v", err)
+		t.Errorf("Repositories.UpdateActionsAllowed returned error: %v", err)
 	}
 
-	want := &ActionsAllowed{GithubOwnedAllowed: Bool(true), VerifiedAllowed: Bool(false), PatternsAllowed: []string{"a/b"}}
+	want := &ActionsAllowed{GithubOwnedAllowed: Ptr(true), VerifiedAllowed: Ptr(false), PatternsAllowed: []string{"a/b"}}
 	if !cmp.Equal(org, want) {
-		t.Errorf("Repositories.EditActionsAllowed returned %+v, want %+v", org, want)
+		t.Errorf("Repositories.UpdateActionsAllowed returned %+v, want %+v", org, want)
 	}
 
-	const methodName = "EditActionsAllowed"
+	const methodName = "UpdateActionsAllowed"
 	testBadOptions(t, methodName, func() (err error) {
 		_, _, err = client.Repositories.EditActionsAllowed(ctx, "\n", "\n", *input)
 		return err

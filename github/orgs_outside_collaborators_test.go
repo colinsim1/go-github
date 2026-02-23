@@ -6,7 +6,7 @@
 package github
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -31,13 +31,13 @@ func TestOrganizationsService_ListOutsideCollaborators(t *testing.T) {
 		Filter:      "2fa_disabled",
 		ListOptions: ListOptions{Page: 2},
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	members, _, err := client.Organizations.ListOutsideCollaborators(ctx, "o", opt)
 	if err != nil {
 		t.Errorf("Organizations.ListOutsideCollaborators returned error: %v", err)
 	}
 
-	want := []*User{{ID: Int64(1)}}
+	want := []*User{{ID: Ptr(int64(1))}}
 	if !cmp.Equal(members, want) {
 		t.Errorf("Organizations.ListOutsideCollaborators returned %+v, want %+v", members, want)
 	}
@@ -61,7 +61,7 @@ func TestOrganizationsService_ListOutsideCollaborators_invalidOrg(t *testing.T) 
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Organizations.ListOutsideCollaborators(ctx, "%", nil)
 	testURLParseError(t, err)
 }
@@ -70,12 +70,12 @@ func TestOrganizationsService_RemoveOutsideCollaborator(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	}
 	mux.HandleFunc("/orgs/o/outside_collaborators/u", handler)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.RemoveOutsideCollaborator(ctx, "o", "u")
 	if err != nil {
 		t.Errorf("Organizations.RemoveOutsideCollaborator returned error: %v", err)
@@ -102,12 +102,13 @@ func TestOrganizationsService_RemoveOutsideCollaborator_NonMember(t *testing.T) 
 	}
 	mux.HandleFunc("/orgs/o/outside_collaborators/u", handler)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.RemoveOutsideCollaborator(ctx, "o", "u")
-	if err, ok := err.(*ErrorResponse); !ok {
-		t.Errorf("Organizations.RemoveOutsideCollaborator did not return an error")
-	} else if err.Response.StatusCode != http.StatusNotFound {
-		t.Errorf("Organizations.RemoveOutsideCollaborator did not return 404 status code")
+	var rerr *ErrorResponse
+	if !errors.As(err, &rerr) {
+		t.Error("Organizations.RemoveOutsideCollaborator did not return an error")
+	} else if rerr.Response.StatusCode != http.StatusNotFound {
+		t.Error("Organizations.RemoveOutsideCollaborator did not return 404 status code")
 	}
 }
 
@@ -121,12 +122,13 @@ func TestOrganizationsService_RemoveOutsideCollaborator_Member(t *testing.T) {
 	}
 	mux.HandleFunc("/orgs/o/outside_collaborators/u", handler)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.RemoveOutsideCollaborator(ctx, "o", "u")
-	if err, ok := err.(*ErrorResponse); !ok {
-		t.Errorf("Organizations.RemoveOutsideCollaborator did not return an error")
-	} else if err.Response.StatusCode != http.StatusUnprocessableEntity {
-		t.Errorf("Organizations.RemoveOutsideCollaborator did not return 422 status code")
+	var rerr *ErrorResponse
+	if !errors.As(err, &rerr) {
+		t.Error("Organizations.RemoveOutsideCollaborator did not return an error")
+	} else if rerr.Response.StatusCode != http.StatusUnprocessableEntity {
+		t.Error("Organizations.RemoveOutsideCollaborator did not return 422 status code")
 	}
 }
 
@@ -134,12 +136,12 @@ func TestOrganizationsService_ConvertMemberToOutsideCollaborator(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 	}
 	mux.HandleFunc("/orgs/o/outside_collaborators/u", handler)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.ConvertMemberToOutsideCollaborator(ctx, "o", "u")
 	if err != nil {
 		t.Errorf("Organizations.ConvertMemberToOutsideCollaborator returned error: %v", err)
@@ -166,11 +168,12 @@ func TestOrganizationsService_ConvertMemberToOutsideCollaborator_NonMemberOrLast
 	}
 	mux.HandleFunc("/orgs/o/outside_collaborators/u", handler)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.ConvertMemberToOutsideCollaborator(ctx, "o", "u")
-	if err, ok := err.(*ErrorResponse); !ok {
-		t.Errorf("Organizations.ConvertMemberToOutsideCollaborator did not return an error")
-	} else if err.Response.StatusCode != http.StatusForbidden {
-		t.Errorf("Organizations.ConvertMemberToOutsideCollaborator did not return 403 status code")
+	var rerr *ErrorResponse
+	if !errors.As(err, &rerr) {
+		t.Error("Organizations.ConvertMemberToOutsideCollaborator did not return an error")
+	} else if rerr.Response.StatusCode != http.StatusForbidden {
+		t.Error("Organizations.ConvertMemberToOutsideCollaborator did not return 403 status code")
 	}
 }

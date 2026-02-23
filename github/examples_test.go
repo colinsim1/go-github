@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/google/go-github/v67/github"
+	"github.com/google/go-github/v83/github"
 )
 
 func ExampleMarkdownService_Render() {
@@ -81,10 +81,10 @@ func ExampleRepositoriesService_CreateFile() {
 	// Note: the file needs to be absent from the repository as you are not
 	// specifying a SHA reference here.
 	opts := &github.RepositoryContentFileOptions{
-		Message:   github.String("This is my commit message"),
+		Message:   github.Ptr("This is my commit message"),
 		Content:   fileContent,
-		Branch:    github.String("master"),
-		Committer: &github.CommitAuthor{Name: github.String("FirstName LastName"), Email: github.String("user@example.com")},
+		Branch:    github.Ptr("master"),
+		Committer: &github.CommitAuthor{Name: github.Ptr("FirstName LastName"), Email: github.Ptr("user@example.com")},
 	}
 	_, _, err := client.Repositories.CreateFile(ctx, "myOrganization", "myRepository", "myNewFile.md", opts)
 	if err != nil {
@@ -105,7 +105,7 @@ func ExampleUsersService_ListAll() {
 		if len(users) == 0 {
 			break
 		}
-		opts.Since = *users[len(users)-1].ID
+		opts.Since = users[len(users)-1].GetID()
 		// Process users...
 	}
 }
@@ -121,11 +121,11 @@ func ExamplePullRequestsService_Create() {
 	client := github.NewClient(nil)
 
 	newPR := &github.NewPullRequest{
-		Title:               github.String("My awesome pull request"),
-		Head:                github.String("branch_to_merge"),
-		Base:                github.String("master"),
-		Body:                github.String("This is the description of the PR created with the package `github.com/google/go-github/github`"),
-		MaintainerCanModify: github.Bool(true),
+		Title:               github.Ptr("My awesome pull request"),
+		Head:                github.Ptr("branch_to_merge"),
+		Base:                github.Ptr("master"),
+		Body:                github.Ptr("This is the description of the PR created with the package `github.com/google/go-github/github`"),
+		MaintainerCanModify: github.Ptr(true),
 	}
 
 	ctx := context.Background()
@@ -135,7 +135,7 @@ func ExamplePullRequestsService_Create() {
 		return
 	}
 
-	fmt.Printf("PR created: %s\n", pr.GetHTMLURL())
+	fmt.Printf("PR created: %v\n", pr.GetHTMLURL())
 }
 
 func ExampleTeamsService_ListTeams() {
@@ -161,7 +161,7 @@ func ExampleTeamsService_ListTeams() {
 		}
 		for _, t := range teams {
 			if t.GetName() == teamName {
-				fmt.Printf("Team %q has ID %d\n", teamName, t.GetID())
+				fmt.Printf("Team %q has ID %v\n", teamName, t.GetID())
 				return
 			}
 		}
@@ -172,4 +172,20 @@ func ExampleTeamsService_ListTeams() {
 	}
 
 	fmt.Printf("Team %q was not found\n", teamName)
+}
+
+func ExampleUsersService_ListUserSocialAccounts() {
+	client := github.NewClient(nil)
+	ctx := context.Background()
+	opts := &github.ListOptions{}
+	for {
+		accounts, resp, err := client.Users.ListUserSocialAccounts(ctx, "shreyjain13", opts)
+		if err != nil {
+			log.Fatalf("Failed to list user social accounts: %v", err)
+		}
+		if resp.NextPage == 0 || len(accounts) == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
 }

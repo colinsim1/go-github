@@ -6,7 +6,7 @@
 package github
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -43,7 +43,7 @@ func TestRepositoriesService_ListContributorsStats(t *testing.T) {
 `)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	stats, _, err := client.Repositories.ListContributorsStats(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("RepositoriesService.ListContributorsStats returned error: %v", err)
@@ -52,16 +52,16 @@ func TestRepositoriesService_ListContributorsStats(t *testing.T) {
 	want := []*ContributorStats{
 		{
 			Author: &Contributor{
-				ID:     Int64(1),
-				NodeID: String("nodeid-1"),
+				ID:     Ptr(int64(1)),
+				NodeID: Ptr("nodeid-1"),
 			},
-			Total: Int(135),
+			Total: Ptr(135),
 			Weeks: []*WeeklyStats{
 				{
-					Week:      &Timestamp{time.Date(2013, time.May, 05, 00, 00, 00, 0, time.UTC).Local()},
-					Additions: Int(6898),
-					Deletions: Int(77),
-					Commits:   Int(10),
+					Week:      &Timestamp{time.Date(2013, time.May, 5, 0, 0, 0, 0, time.UTC).Local()},
+					Additions: Ptr(6898),
+					Deletions: Ptr(77),
+					Commits:   Ptr(10),
 				},
 			},
 		},
@@ -104,7 +104,7 @@ func TestRepositoriesService_ListCommitActivity(t *testing.T) {
 `)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	activity, _, err := client.Repositories.ListCommitActivity(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("RepositoriesService.ListCommitActivity returned error: %v", err)
@@ -113,8 +113,8 @@ func TestRepositoriesService_ListCommitActivity(t *testing.T) {
 	want := []*WeeklyCommitActivity{
 		{
 			Days:  []int{0, 3, 26, 20, 39, 1, 0},
-			Total: Int(89),
-			Week:  &Timestamp{time.Date(2012, time.May, 06, 05, 00, 00, 0, time.UTC).Local()},
+			Total: Ptr(89),
+			Week:  &Timestamp{time.Date(2012, time.May, 6, 5, 0, 0, 0, time.UTC).Local()},
 		},
 	}
 
@@ -147,16 +147,16 @@ func TestRepositoriesService_ListCodeFrequency(t *testing.T) {
 		fmt.Fprint(w, `[[1302998400, 1124, -435]]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	code, _, err := client.Repositories.ListCodeFrequency(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("RepositoriesService.ListCodeFrequency returned error: %v", err)
 	}
 
 	want := []*WeeklyStats{{
-		Week:      &Timestamp{time.Date(2011, time.April, 17, 00, 00, 00, 0, time.UTC).Local()},
-		Additions: Int(1124),
-		Deletions: Int(-435),
+		Week:      &Timestamp{time.Date(2011, time.April, 17, 0, 0, 0, 0, time.UTC).Local()},
+		Additions: Ptr(1124),
+		Deletions: Ptr(-435),
 	}}
 
 	if !cmp.Equal(code, want) {
@@ -203,7 +203,7 @@ func TestRepositoriesService_Participation(t *testing.T) {
 `)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	participation, _, err := client.Repositories.ListParticipation(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("RepositoriesService.ListParticipation returned error: %v", err)
@@ -257,16 +257,16 @@ func TestRepositoriesService_ListPunchCard(t *testing.T) {
 		]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	card, _, err := client.Repositories.ListPunchCard(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("RepositoriesService.ListPunchCard returned error: %v", err)
 	}
 
 	want := []*PunchCard{
-		{Day: Int(0), Hour: Int(0), Commits: Int(5)},
-		{Day: Int(0), Hour: Int(1), Commits: Int(43)},
-		{Day: Int(0), Hour: Int(2), Commits: Int(21)},
+		{Day: Ptr(0), Hour: Ptr(0), Commits: Ptr(5)},
+		{Day: Ptr(0), Hour: Ptr(1), Commits: Ptr(43)},
+		{Day: Ptr(0), Hour: Ptr(2), Commits: Ptr(21)},
 	}
 
 	if !cmp.Equal(card, want) {
@@ -299,13 +299,13 @@ func TestRepositoriesService_AcceptedError(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	stats, _, err := client.Repositories.ListContributorsStats(ctx, "o", "r")
 	if err == nil {
-		t.Errorf("RepositoriesService.AcceptedError should have returned an error")
+		t.Error("RepositoriesService.AcceptedError should have returned an error")
 	}
 
-	if _, ok := err.(*AcceptedError); !ok {
+	if !errors.As(err, new(*AcceptedError)) {
 		t.Errorf("RepositoriesService.AcceptedError returned an AcceptedError: %v", err)
 	}
 
@@ -351,7 +351,7 @@ func TestWeeklyCommitActivity_Marshal(t *testing.T) {
 
 	u := &WeeklyCommitActivity{
 		Days:  []int{1},
-		Total: Int(1),
+		Total: Ptr(1),
 		Week:  &Timestamp{referenceTime},
 	}
 
@@ -372,9 +372,9 @@ func TestWeeklyStats_Marshal(t *testing.T) {
 
 	u := &WeeklyStats{
 		Week:      &Timestamp{referenceTime},
-		Additions: Int(1),
-		Deletions: Int(1),
-		Commits:   Int(1),
+		Additions: Ptr(1),
+		Deletions: Ptr(1),
+		Commits:   Ptr(1),
 	}
 
 	want := `{
@@ -392,14 +392,14 @@ func TestContributorStats_Marshal(t *testing.T) {
 	testJSONMarshal(t, &ContributorStats{}, "{}")
 
 	u := &ContributorStats{
-		Author: &Contributor{ID: Int64(1)},
-		Total:  Int(1),
+		Author: &Contributor{ID: Ptr(int64(1))},
+		Total:  Ptr(1),
 		Weeks: []*WeeklyStats{
 			{
 				Week:      &Timestamp{referenceTime},
-				Additions: Int(1),
-				Deletions: Int(1),
-				Commits:   Int(1),
+				Additions: Ptr(1),
+				Deletions: Ptr(1),
+				Commits:   Ptr(1),
 			},
 		},
 	}

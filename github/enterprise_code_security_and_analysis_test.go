@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -32,7 +31,7 @@ func TestEnterpriseService_GetCodeSecurityAndAnalysis(t *testing.T) {
 		}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	const methodName = "GetCodeSecurityAndAnalysis"
 
@@ -41,11 +40,11 @@ func TestEnterpriseService_GetCodeSecurityAndAnalysis(t *testing.T) {
 		t.Errorf("Enterprise.%v returned error: %v", methodName, err)
 	}
 	want := &EnterpriseSecurityAnalysisSettings{
-		AdvancedSecurityEnabledForNewRepositories:             Bool(true),
-		SecretScanningEnabledForNewRepositories:               Bool(true),
-		SecretScanningPushProtectionEnabledForNewRepositories: Bool(true),
-		SecretScanningPushProtectionCustomLink:                String("https://github.com/test-org/test-repo/blob/main/README.md"),
-		SecretScanningValidityChecksEnabled:                   Bool(true),
+		AdvancedSecurityEnabledForNewRepositories:             Ptr(true),
+		SecretScanningEnabledForNewRepositories:               Ptr(true),
+		SecretScanningPushProtectionEnabledForNewRepositories: Ptr(true),
+		SecretScanningPushProtectionCustomLink:                Ptr("https://github.com/test-org/test-repo/blob/main/README.md"),
+		SecretScanningValidityChecksEnabled:                   Ptr(true),
 	}
 
 	if !cmp.Equal(settings, want) {
@@ -71,14 +70,14 @@ func TestEnterpriseService_UpdateCodeSecurityAndAnalysis(t *testing.T) {
 	client, mux, _ := setup(t)
 
 	input := &EnterpriseSecurityAnalysisSettings{
-		AdvancedSecurityEnabledForNewRepositories:             Bool(true),
-		SecretScanningEnabledForNewRepositories:               Bool(true),
-		SecretScanningPushProtectionEnabledForNewRepositories: Bool(true),
-		SecretScanningPushProtectionCustomLink:                String("https://github.com/test-org/test-repo/blob/main/README.md"),
-		SecretScanningValidityChecksEnabled:                   Bool(true),
+		AdvancedSecurityEnabledForNewRepositories:             Ptr(true),
+		SecretScanningEnabledForNewRepositories:               Ptr(true),
+		SecretScanningPushProtectionEnabledForNewRepositories: Ptr(true),
+		SecretScanningPushProtectionCustomLink:                Ptr("https://github.com/test-org/test-repo/blob/main/README.md"),
+		SecretScanningValidityChecksEnabled:                   Ptr(true),
 	}
 
-	mux.HandleFunc("/enterprises/e/code_security_and_analysis", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/enterprises/e/code_security_and_analysis", func(_ http.ResponseWriter, r *http.Request) {
 		v := new(EnterpriseSecurityAnalysisSettings)
 		assertNilError(t, json.NewDecoder(r.Body).Decode(v))
 
@@ -88,7 +87,7 @@ func TestEnterpriseService_UpdateCodeSecurityAndAnalysis(t *testing.T) {
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	const methodName = "UpdateCodeSecurityAndAnalysis"
 
@@ -111,11 +110,11 @@ func TestEnterpriseService_EnableAdvancedSecurity(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/enterprises/e/advanced_security/enable_all", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/enterprises/e/advanced_security/enable_all", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "POST")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	const methodName = "EnableDisableSecurityFeature"
 

@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -27,17 +26,17 @@ func TestActionsService_ListWorkflows(t *testing.T) {
 	})
 
 	opts := &ListOptions{Page: 2, PerPage: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	workflows, _, err := client.Actions.ListWorkflows(ctx, "o", "r", opts)
 	if err != nil {
 		t.Errorf("Actions.ListWorkflows returned error: %v", err)
 	}
 
 	want := &Workflows{
-		TotalCount: Int(4),
+		TotalCount: Ptr(4),
 		Workflows: []*Workflow{
-			{ID: Int64(72844), CreatedAt: &Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
-			{ID: Int64(72845), CreatedAt: &Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
+			{ID: Ptr(int64(72844)), CreatedAt: &Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
+			{ID: Ptr(int64(72845)), CreatedAt: &Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: &Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
 		},
 	}
 	if !cmp.Equal(workflows, want) {
@@ -68,16 +67,16 @@ func TestActionsService_GetWorkflowByID(t *testing.T) {
 		fmt.Fprint(w, `{"id":72844,"created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	workflow, _, err := client.Actions.GetWorkflowByID(ctx, "o", "r", 72844)
 	if err != nil {
 		t.Errorf("Actions.GetWorkflowByID returned error: %v", err)
 	}
 
 	want := &Workflow{
-		ID:        Int64(72844),
-		CreatedAt: &Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)},
-		UpdatedAt: &Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)},
+		ID:        Ptr(int64(72844)),
+		CreatedAt: &Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)},
+		UpdatedAt: &Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)},
 	}
 	if !cmp.Equal(workflow, want) {
 		t.Errorf("Actions.GetWorkflowByID returned %+v, want %+v", workflow, want)
@@ -107,16 +106,16 @@ func TestActionsService_GetWorkflowByFileName(t *testing.T) {
 		fmt.Fprint(w, `{"id":72844,"created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	workflow, _, err := client.Actions.GetWorkflowByFileName(ctx, "o", "r", "main.yml")
 	if err != nil {
 		t.Errorf("Actions.GetWorkflowByFileName returned error: %v", err)
 	}
 
 	want := &Workflow{
-		ID:        Int64(72844),
-		CreatedAt: &Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)},
-		UpdatedAt: &Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)},
+		ID:        Ptr(int64(72844)),
+		CreatedAt: &Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)},
+		UpdatedAt: &Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)},
 	}
 	if !cmp.Equal(workflow, want) {
 		t.Errorf("Actions.GetWorkflowByFileName returned %+v, want %+v", workflow, want)
@@ -146,7 +145,7 @@ func TestActionsService_GetWorkflowUsageByID(t *testing.T) {
 		fmt.Fprint(w, `{"billable":{"UBUNTU":{"total_ms":180000},"MACOS":{"total_ms":240000},"WINDOWS":{"total_ms":300000}}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	workflowUsage, _, err := client.Actions.GetWorkflowUsageByID(ctx, "o", "r", 72844)
 	if err != nil {
 		t.Errorf("Actions.GetWorkflowUsageByID returned error: %v", err)
@@ -155,13 +154,13 @@ func TestActionsService_GetWorkflowUsageByID(t *testing.T) {
 	want := &WorkflowUsage{
 		Billable: &WorkflowBillMap{
 			"UBUNTU": &WorkflowBill{
-				TotalMS: Int64(180000),
+				TotalMS: Ptr(int64(180000)),
 			},
 			"MACOS": &WorkflowBill{
-				TotalMS: Int64(240000),
+				TotalMS: Ptr(int64(240000)),
 			},
 			"WINDOWS": &WorkflowBill{
-				TotalMS: Int64(300000),
+				TotalMS: Ptr(int64(300000)),
 			},
 		},
 	}
@@ -193,7 +192,7 @@ func TestActionsService_GetWorkflowUsageByFileName(t *testing.T) {
 		fmt.Fprint(w, `{"billable":{"UBUNTU":{"total_ms":180000},"MACOS":{"total_ms":240000},"WINDOWS":{"total_ms":300000}}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	workflowUsage, _, err := client.Actions.GetWorkflowUsageByFileName(ctx, "o", "r", "main.yml")
 	if err != nil {
 		t.Errorf("Actions.GetWorkflowUsageByFileName returned error: %v", err)
@@ -202,13 +201,13 @@ func TestActionsService_GetWorkflowUsageByFileName(t *testing.T) {
 	want := &WorkflowUsage{
 		Billable: &WorkflowBillMap{
 			"UBUNTU": &WorkflowBill{
-				TotalMS: Int64(180000),
+				TotalMS: Ptr(int64(180000)),
 			},
 			"MACOS": &WorkflowBill{
-				TotalMS: Int64(240000),
+				TotalMS: Ptr(int64(240000)),
 			},
 			"WINDOWS": &WorkflowBill{
-				TotalMS: Int64(300000),
+				TotalMS: Ptr(int64(300000)),
 			},
 		},
 	}
@@ -237,11 +236,11 @@ func TestActionsService_CreateWorkflowDispatchEventByID(t *testing.T) {
 
 	event := CreateWorkflowDispatchEventRequest{
 		Ref: "d4cfb6e7",
-		Inputs: map[string]interface{}{
+		Inputs: map[string]any{
 			"key": "value",
 		},
 	}
-	mux.HandleFunc("/repos/o/r/actions/workflows/72844/dispatches", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/actions/workflows/72844/dispatches", func(_ http.ResponseWriter, r *http.Request) {
 		var v CreateWorkflowDispatchEventRequest
 		assertNilError(t, json.NewDecoder(r.Body).Decode(&v))
 
@@ -251,7 +250,7 @@ func TestActionsService_CreateWorkflowDispatchEventByID(t *testing.T) {
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.CreateWorkflowDispatchEventByID(ctx, "o", "r", 72844, event)
 	if err != nil {
 		t.Errorf("Actions.CreateWorkflowDispatchEventByID returned error: %v", err)
@@ -281,11 +280,11 @@ func TestActionsService_CreateWorkflowDispatchEventByFileName(t *testing.T) {
 
 	event := CreateWorkflowDispatchEventRequest{
 		Ref: "d4cfb6e7",
-		Inputs: map[string]interface{}{
+		Inputs: map[string]any{
 			"key": "value",
 		},
 	}
-	mux.HandleFunc("/repos/o/r/actions/workflows/main.yml/dispatches", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/actions/workflows/main.yml/dispatches", func(_ http.ResponseWriter, r *http.Request) {
 		var v CreateWorkflowDispatchEventRequest
 		assertNilError(t, json.NewDecoder(r.Body).Decode(&v))
 
@@ -295,7 +294,7 @@ func TestActionsService_CreateWorkflowDispatchEventByFileName(t *testing.T) {
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.CreateWorkflowDispatchEventByFileName(ctx, "o", "r", "main.yml", event)
 	if err != nil {
 		t.Errorf("Actions.CreateWorkflowDispatchEventByFileName returned error: %v", err)
@@ -323,14 +322,14 @@ func TestActionsService_EnableWorkflowByID(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/actions/workflows/72844/enable", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/actions/workflows/72844/enable", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 		if r.Body != http.NoBody {
 			t.Errorf("Request body = %+v, want %+v", r.Body, http.NoBody)
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.EnableWorkflowByID(ctx, "o", "r", 72844)
 	if err != nil {
 		t.Errorf("Actions.EnableWorkflowByID returned error: %v", err)
@@ -358,14 +357,14 @@ func TestActionsService_EnableWorkflowByFilename(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/actions/workflows/main.yml/enable", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/actions/workflows/main.yml/enable", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 		if r.Body != http.NoBody {
 			t.Errorf("Request body = %+v, want %+v", r.Body, http.NoBody)
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.EnableWorkflowByFileName(ctx, "o", "r", "main.yml")
 	if err != nil {
 		t.Errorf("Actions.EnableWorkflowByFilename returned error: %v", err)
@@ -393,14 +392,14 @@ func TestActionsService_DisableWorkflowByID(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/actions/workflows/72844/disable", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/actions/workflows/72844/disable", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 		if r.Body != http.NoBody {
 			t.Errorf("Request body = %+v, want %+v", r.Body, http.NoBody)
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.DisableWorkflowByID(ctx, "o", "r", 72844)
 	if err != nil {
 		t.Errorf("Actions.DisableWorkflowByID returned error: %v", err)
@@ -428,14 +427,14 @@ func TestActionsService_DisableWorkflowByFileName(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/actions/workflows/main.yml/disable", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/actions/workflows/main.yml/disable", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 		if r.Body != http.NoBody {
 			t.Errorf("Request body = %+v, want %+v", r.Body, http.NoBody)
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.DisableWorkflowByFileName(ctx, "o", "r", "main.yml")
 	if err != nil {
 		t.Errorf("Actions.DisableWorkflowByFileName returned error: %v", err)
@@ -464,16 +463,16 @@ func TestWorkflow_Marshal(t *testing.T) {
 	testJSONMarshal(t, &Workflow{}, "{}")
 
 	u := &Workflow{
-		ID:        Int64(1),
-		NodeID:    String("nid"),
-		Name:      String("n"),
-		Path:      String("p"),
-		State:     String("s"),
+		ID:        Ptr(int64(1)),
+		NodeID:    Ptr("nid"),
+		Name:      Ptr("n"),
+		Path:      Ptr("p"),
+		State:     Ptr("s"),
 		CreatedAt: &Timestamp{referenceTime},
 		UpdatedAt: &Timestamp{referenceTime},
-		URL:       String("u"),
-		HTMLURL:   String("h"),
-		BadgeURL:  String("b"),
+		URL:       Ptr("u"),
+		HTMLURL:   Ptr("h"),
+		BadgeURL:  Ptr("b"),
 	}
 
 	want := `{
@@ -497,19 +496,19 @@ func TestWorkflows_Marshal(t *testing.T) {
 	testJSONMarshal(t, &Workflows{}, "{}")
 
 	u := &Workflows{
-		TotalCount: Int(1),
+		TotalCount: Ptr(1),
 		Workflows: []*Workflow{
 			{
-				ID:        Int64(1),
-				NodeID:    String("nid"),
-				Name:      String("n"),
-				Path:      String("p"),
-				State:     String("s"),
+				ID:        Ptr(int64(1)),
+				NodeID:    Ptr("nid"),
+				Name:      Ptr("n"),
+				Path:      Ptr("p"),
+				State:     Ptr("s"),
 				CreatedAt: &Timestamp{referenceTime},
 				UpdatedAt: &Timestamp{referenceTime},
-				URL:       String("u"),
-				HTMLURL:   String("h"),
-				BadgeURL:  String("b"),
+				URL:       Ptr("u"),
+				HTMLURL:   Ptr("h"),
+				BadgeURL:  Ptr("b"),
 			},
 		},
 	}
@@ -538,7 +537,7 @@ func TestWorkflowBill_Marshal(t *testing.T) {
 	testJSONMarshal(t, &WorkflowBill{}, "{}")
 
 	u := &WorkflowBill{
-		TotalMS: Int64(1),
+		TotalMS: Ptr(int64(1)),
 	}
 
 	want := `{
@@ -554,13 +553,13 @@ func TestWorkflowBillMap_Marshal(t *testing.T) {
 
 	u := &WorkflowBillMap{
 		"UBUNTU": &WorkflowBill{
-			TotalMS: Int64(1),
+			TotalMS: Ptr(int64(1)),
 		},
 		"MACOS": &WorkflowBill{
-			TotalMS: Int64(1),
+			TotalMS: Ptr(int64(1)),
 		},
 		"WINDOWS": &WorkflowBill{
-			TotalMS: Int64(1),
+			TotalMS: Ptr(int64(1)),
 		},
 	}
 
@@ -586,13 +585,13 @@ func TestWorkflowUsage_Marshal(t *testing.T) {
 	u := &WorkflowUsage{
 		Billable: &WorkflowBillMap{
 			"UBUNTU": &WorkflowBill{
-				TotalMS: Int64(1),
+				TotalMS: Ptr(int64(1)),
 			},
 			"MACOS": &WorkflowBill{
-				TotalMS: Int64(1),
+				TotalMS: Ptr(int64(1)),
 			},
 			"WINDOWS": &WorkflowBill{
-				TotalMS: Int64(1),
+				TotalMS: Ptr(int64(1)),
 			},
 		},
 	}
@@ -618,7 +617,7 @@ func TestCreateWorkflowDispatchEventRequest_Marshal(t *testing.T) {
 	t.Parallel()
 	testJSONMarshal(t, &CreateWorkflowDispatchEventRequest{}, "{}")
 
-	inputs := make(map[string]interface{}, 0)
+	inputs := make(map[string]any, 0)
 	inputs["key"] = "value"
 
 	u := &CreateWorkflowDispatchEventRequest{

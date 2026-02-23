@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Timestamp represents a time that can be unmarshalled from a JSON string
+// Timestamp represents a time that can be unmarshaled from a JSON string
 // formatted as either an RFC3339 or Unix timestamp. This is necessary for some
 // fields since the GitHub API is inconsistent in how it represents times. All
 // exported methods of time.Time can be called on Timestamp.
@@ -43,7 +43,7 @@ func (t *Timestamp) UnmarshalJSON(data []byte) (err error) {
 	} else {
 		t.Time, err = time.Parse(`"`+time.RFC3339+`"`, str)
 	}
-	return
+	return err
 }
 
 // Equal reports whether t and u are equal based on time.Equal.

@@ -43,19 +43,20 @@ type AuditEntry struct {
 	HashedToken              *string        `json:"hashed_token,omitempty"`
 	Org                      *string        `json:"org,omitempty"`
 	OrgID                    *int64         `json:"org_id,omitempty"`
-	Timestamp                *Timestamp     `json:"@timestamp,omitempty"` // The time the audit log event occurred, given as a [Unix timestamp](http://en.wikipedia.org/wiki/Unix_time).
+	Timestamp                *Timestamp     `json:"@timestamp,omitempty"` // The time the audit log event occurred, given as a [Unix timestamp](https://en.wikipedia.org/wiki/Unix_time).
 	TokenID                  *int64         `json:"token_id,omitempty"`
 	TokenScopes              *string        `json:"token_scopes,omitempty"`
 	User                     *string        `json:"user,omitempty"` // The user that was affected by the action performed (if available).
 	UserID                   *int64         `json:"user_id,omitempty"`
 
 	// Some events types have a data field that contains additional information about the event.
-	Data map[string]interface{} `json:"data,omitempty"`
+	Data map[string]any `json:"data,omitempty"`
 
 	// All fields that are not explicitly defined in the struct are captured here.
-	AdditionalFields map[string]interface{} `json:"-"`
+	AdditionalFields map[string]any `json:"-"`
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (a *AuditEntry) UnmarshalJSON(data []byte) error {
 	type entryAlias AuditEntry
 	var v entryAlias
@@ -67,7 +68,7 @@ func (a *AuditEntry) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	definedFields := map[string]interface{}{}
+	definedFields := map[string]any{}
 	if err := json.Unmarshal(rawDefinedFields, &definedFields); err != nil {
 		return err
 	}
@@ -89,6 +90,7 @@ func (a *AuditEntry) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalJSON implements the json.Marshaler interface.
 func (a *AuditEntry) MarshalJSON() ([]byte, error) {
 	type entryAlias AuditEntry
 	v := entryAlias(*a)
@@ -99,7 +101,7 @@ func (a *AuditEntry) MarshalJSON() ([]byte, error) {
 	if len(a.AdditionalFields) == 0 {
 		return defBytes, err
 	}
-	resMap := map[string]interface{}{}
+	resMap := map[string]any{}
 	if err := json.Unmarshal(defBytes, &resMap); err != nil {
 		return nil, err
 	}

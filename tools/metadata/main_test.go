@@ -23,7 +23,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-github/v67/github"
+	"github.com/google/go-github/v83/github"
 )
 
 func TestUpdateGo(t *testing.T) {
@@ -67,9 +67,9 @@ GET /undocumented/{undocumented_id}
 `, "")
 }
 
-//nolint:tparallel,paralleltest // cannot use t.Parallel() when helper calls t.Setenv
+//nolint:paralleltest // cannot use t.Parallel() when helper calls t.Setenv
 func TestUpdateOpenAPI(t *testing.T) {
-	testServer := newTestServer(t, "main", map[string]interface{}{
+	testServer := newTestServer(t, "main", map[string]any{
 		"api.github.com/api.github.com.json": openapi3.T{
 			Paths: openapi3.NewPaths(
 				openapi3.WithPath("/a/{a_id}", &openapi3.PathItem{
@@ -216,7 +216,7 @@ func checkGoldenDir(t *testing.T, origDir, resultDir, goldenDir string) {
 			return err
 		}
 		golden = false
-		return fmt.Errorf("found unexpected file:\n%s", relPath)
+		return fmt.Errorf("found unexpected file:\n%v", relPath)
 	}))
 }
 
@@ -308,7 +308,7 @@ func (r testRun) assertErr(want string) {
 		return
 	}
 	if strings.TrimSpace(r.err.Error()) != strings.TrimSpace(want) {
-		r.t.Errorf("unexpected error:\nwant:\n%s\ngot:\n%s", want, r.err.Error())
+		r.t.Errorf("unexpected error:\nwant:\n%v\ngot:\n%v", want, r.err.Error())
 	}
 }
 
@@ -332,14 +332,14 @@ func runTest(t *testing.T, srcDir string, args ...string) testRun {
 	return res
 }
 
-func newTestServer(t *testing.T, ref string, files map[string]interface{}) *httptest.Server {
+func newTestServer(t *testing.T, ref string, files map[string]any) *httptest.Server {
 	t.Helper()
-	jsonHandler := func(wantQuery url.Values, val interface{}) http.HandlerFunc {
+	jsonHandler := func(wantQuery url.Values, val any) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			gotQuery := r.URL.Query()
 			queryDiff := cmp.Diff(wantQuery, gotQuery)
 			if queryDiff != "" {
-				t.Errorf("query mismatch for %s (-want +got):\n%s", r.URL.Path, queryDiff)
+				t.Errorf("query mismatch for %v (-want +got):\n%v", r.URL.Path, queryDiff)
 			}
 			w.WriteHeader(200)
 			err := json.NewEncoder(w).Encode(val)
@@ -355,19 +355,19 @@ func newTestServer(t *testing.T, ref string, files map[string]interface{}) *http
 	server := httptest.NewServer(mux)
 	mux.HandleFunc(
 		path.Join(repoPath, "commits", ref),
-		jsonHandler(emptyQuery, &github.RepositoryCommit{SHA: github.String("s")}),
+		jsonHandler(emptyQuery, &github.RepositoryCommit{SHA: github.Ptr("s")}),
 	)
 	var descriptionsContent []*github.RepositoryContent
 	for name, content := range files {
 		descriptionsContent = append(descriptionsContent, &github.RepositoryContent{
-			Name: github.String(path.Base(path.Dir(name))),
+			Name: github.Ptr(path.Base(path.Dir(name))),
 		})
 		mux.HandleFunc(
 			path.Join(repoPath, "contents/descriptions", path.Dir(name)),
 			jsonHandler(refQuery, []*github.RepositoryContent{
 				{
-					Name:        github.String(path.Base(name)),
-					DownloadURL: github.String(server.URL + "/dl/" + name),
+					Name:        github.Ptr(path.Base(name)),
+					DownloadURL: github.Ptr(server.URL + "/dl/" + name),
 				},
 			}),
 		)
@@ -407,7 +407,7 @@ func assertEqualFiles(t *testing.T, want, got string) bool {
 	gotBytes = bytes.ReplaceAll(gotBytes, []byte("\r\n"), []byte("\n"))
 	if !bytes.Equal(wantBytes, gotBytes) {
 		diff := cmp.Diff(string(wantBytes), string(gotBytes))
-		t.Errorf("files %q and %q differ: %s", want, got, diff)
+		t.Errorf("files %q and %q differ: %v", want, got, diff)
 		return false
 	}
 	return true

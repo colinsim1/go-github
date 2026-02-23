@@ -7,6 +7,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -107,6 +108,10 @@ type createPagesRequest struct {
 //
 //meta:operation POST /repos/{owner}/{repo}/pages
 func (s *RepositoriesService) EnablePages(ctx context.Context, owner, repo string, pages *Pages) (*Pages, *Response, error) {
+	if pages == nil {
+		return nil, nil, errors.New("pages must be provided")
+	}
+
 	u := fmt.Sprintf("repos/%v/%v/pages", owner, repo)
 
 	pagesReq := &createPagesRequest{
@@ -170,7 +175,35 @@ func (s *RepositoriesService) UpdatePages(ctx context.Context, owner, repo strin
 	if err != nil {
 		return resp, err
 	}
+	return resp, nil
+}
 
+// PagesUpdateWithoutCNAME defines parameters for updating a GitHub Pages site on GitHub Enterprise Servers.
+// Sending a request with a CNAME (any value, empty string, or null) results in a 400 error: "Custom domains are not available for GitHub Pages".
+type PagesUpdateWithoutCNAME struct {
+	BuildType     *string      `json:"build_type,omitempty"`
+	Source        *PagesSource `json:"source,omitempty"`
+	Public        *bool        `json:"public,omitempty"`
+	HTTPSEnforced *bool        `json:"https_enforced,omitempty"`
+}
+
+// UpdatePagesGHES updates GitHub Pages for the named repo in GitHub Enterprise Servers.
+//
+// GitHub API docs: https://docs.github.com/rest/pages/pages#update-information-about-a-github-pages-site
+//
+//meta:operation PUT /repos/{owner}/{repo}/pages
+func (s *RepositoriesService) UpdatePagesGHES(ctx context.Context, owner, repo string, opts *PagesUpdateWithoutCNAME) (*Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/pages", owner, repo)
+
+	req, err := s.client.NewRequest("PUT", u, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.Do(ctx, req, nil)
+	if err != nil {
+		return resp, err
+	}
 	return resp, nil
 }
 
@@ -186,7 +219,6 @@ func (s *RepositoriesService) DisablePages(ctx context.Context, owner, repo stri
 		return nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeEnablePagesAPIPreview)
 
 	return s.client.Do(ctx, req, nil)

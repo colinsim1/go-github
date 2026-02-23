@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,9 +19,9 @@ func TestMarkdownService_Markdown(t *testing.T) {
 	client, mux, _ := setup(t)
 
 	input := &markdownRenderRequest{
-		Text:    String("# text #"),
-		Mode:    String("gfm"),
-		Context: String("google/go-github"),
+		Text:    Ptr("# text #"),
+		Mode:    Ptr("gfm"),
+		Context: Ptr("google/go-github"),
 	}
 	mux.HandleFunc("/markdown", func(w http.ResponseWriter, r *http.Request) {
 		v := new(markdownRenderRequest)
@@ -35,7 +34,7 @@ func TestMarkdownService_Markdown(t *testing.T) {
 		fmt.Fprint(w, `<h1>text</h1>`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	md, _, err := client.Markdown.Render(ctx, "# text #", &MarkdownOptions{
 		Mode:    "gfm",
 		Context: "google/go-github",
@@ -66,9 +65,9 @@ func TestMarkdownRenderRequest_Marshal(t *testing.T) {
 	testJSONMarshal(t, &markdownRenderRequest{}, "{}")
 
 	a := &markdownRenderRequest{
-		Text:    String("txt"),
-		Mode:    String("mode"),
-		Context: String("ctx"),
+		Text:    Ptr("txt"),
+		Mode:    Ptr("mode"),
+		Context: Ptr("ctx"),
 	}
 
 	want := `{

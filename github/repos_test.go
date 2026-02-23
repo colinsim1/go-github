@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,13 +27,13 @@ func TestRepositoriesService_ListByAuthenticatedUser(t *testing.T) {
 		fmt.Fprint(w, `[{"id":1},{"id":2}]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.ListByAuthenticatedUser(ctx, nil)
 	if err != nil {
 		t.Errorf("Repositories.List returned error: %v", err)
 	}
 
-	want := []*Repository{{ID: Int64(1)}, {ID: Int64(2)}}
+	want := []*Repository{{ID: Ptr(int64(1))}, {ID: Ptr(int64(2))}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.ListByAuthenticatedUser returned %+v, want %+v", got, want)
 	}
@@ -69,13 +68,13 @@ func TestRepositoriesService_ListByUser(t *testing.T) {
 		Direction:   "asc",
 		ListOptions: ListOptions{Page: 2},
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	repos, _, err := client.Repositories.ListByUser(ctx, "u", opt)
 	if err != nil {
 		t.Errorf("Repositories.List returned error: %v", err)
 	}
 
-	want := []*Repository{{ID: Int64(1)}}
+	want := []*Repository{{ID: Ptr(int64(1))}}
 	if !cmp.Equal(repos, want) {
 		t.Errorf("Repositories.ListByUser returned %+v, want %+v", repos, want)
 	}
@@ -110,13 +109,13 @@ func TestRepositoriesService_ListByUser_type(t *testing.T) {
 	opt := &RepositoryListByUserOptions{
 		Type: "owner",
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	repos, _, err := client.Repositories.ListByUser(ctx, "u", opt)
 	if err != nil {
 		t.Errorf("Repositories.ListByUser returned error: %v", err)
 	}
 
-	want := []*Repository{{ID: Int64(1)}}
+	want := []*Repository{{ID: Ptr(int64(1))}}
 	if !cmp.Equal(repos, want) {
 		t.Errorf("Repositories.ListByUser returned %+v, want %+v", repos, want)
 	}
@@ -126,7 +125,7 @@ func TestRepositoriesService_ListByUser_invalidUser(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.ListByUser(ctx, "%", nil)
 	testURLParseError(t, err)
 }
@@ -146,7 +145,7 @@ func TestRepositoriesService_ListByOrg(t *testing.T) {
 		fmt.Fprint(w, `[{"id":1}]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	opt := &RepositoryListByOrgOptions{
 		Type:        "forks",
 		ListOptions: ListOptions{Page: 2},
@@ -156,7 +155,7 @@ func TestRepositoriesService_ListByOrg(t *testing.T) {
 		t.Errorf("Repositories.ListByOrg returned error: %v", err)
 	}
 
-	want := []*Repository{{ID: Int64(1)}}
+	want := []*Repository{{ID: Ptr(int64(1))}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.ListByOrg returned %+v, want %+v", got, want)
 	}
@@ -180,7 +179,7 @@ func TestRepositoriesService_ListByOrg_invalidOrg(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.ListByOrg(ctx, "%", nil)
 	testURLParseError(t, err)
 }
@@ -197,14 +196,14 @@ func TestRepositoriesService_ListAll(t *testing.T) {
 		fmt.Fprint(w, `[{"id":1}]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	opt := &RepositoryListAllOptions{1}
 	got, _, err := client.Repositories.ListAll(ctx, opt)
 	if err != nil {
 		t.Errorf("Repositories.ListAll returned error: %v", err)
 	}
 
-	want := []*Repository{{ID: Int64(1)}}
+	want := []*Repository{{ID: Ptr(int64(1))}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.ListAll returned %+v, want %+v", got, want)
 	}
@@ -224,8 +223,8 @@ func TestRepositoriesService_Create_user(t *testing.T) {
 	client, mux, _ := setup(t)
 
 	input := &Repository{
-		Name:     String("n"),
-		Archived: Bool(true), // not passed along.
+		Name:     Ptr("n"),
+		Archived: Ptr(true), // not passed along.
 	}
 
 	wantAcceptHeaders := []string{mediaTypeRepositoryTemplatePreview, mediaTypeRepositoryVisibilityPreview}
@@ -235,7 +234,7 @@ func TestRepositoriesService_Create_user(t *testing.T) {
 
 		testMethod(t, r, "POST")
 		testHeader(t, r, "Accept", strings.Join(wantAcceptHeaders, ", "))
-		want := &createRepoRequest{Name: String("n")}
+		want := &createRepoRequest{Name: Ptr("n")}
 		if !cmp.Equal(v, want) {
 			t.Errorf("Request body = %+v, want %+v", v, want)
 		}
@@ -243,18 +242,22 @@ func TestRepositoriesService_Create_user(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.Create(ctx, "", input)
 	if err != nil {
 		t.Errorf("Repositories.Create returned error: %v", err)
 	}
 
-	want := &Repository{ID: Int64(1)}
+	want := &Repository{ID: Ptr(int64(1))}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.Create returned %+v, want %+v", got, want)
 	}
 
 	const methodName = "Create"
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Repositories.Create(ctx, "", nil)
+		return err
+	})
 	testBadOptions(t, methodName, func() (err error) {
 		_, _, err = client.Repositories.Create(ctx, "\n", input)
 		return err
@@ -274,8 +277,8 @@ func TestRepositoriesService_Create_org(t *testing.T) {
 	client, mux, _ := setup(t)
 
 	input := &Repository{
-		Name:     String("n"),
-		Archived: Bool(true), // not passed along.
+		Name:     Ptr("n"),
+		Archived: Ptr(true), // not passed along.
 	}
 
 	wantAcceptHeaders := []string{mediaTypeRepositoryTemplatePreview, mediaTypeRepositoryVisibilityPreview}
@@ -285,7 +288,7 @@ func TestRepositoriesService_Create_org(t *testing.T) {
 
 		testMethod(t, r, "POST")
 		testHeader(t, r, "Accept", strings.Join(wantAcceptHeaders, ", "))
-		want := &createRepoRequest{Name: String("n")}
+		want := &createRepoRequest{Name: Ptr("n")}
 		if !cmp.Equal(v, want) {
 			t.Errorf("Request body = %+v, want %+v", v, want)
 		}
@@ -293,13 +296,60 @@ func TestRepositoriesService_Create_org(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo, _, err := client.Repositories.Create(ctx, "o", input)
 	if err != nil {
 		t.Errorf("Repositories.Create returned error: %v", err)
 	}
 
-	want := &Repository{ID: Int64(1)}
+	want := &Repository{ID: Ptr(int64(1))}
+	if !cmp.Equal(repo, want) {
+		t.Errorf("Repositories.Create returned %+v, want %+v", repo, want)
+	}
+}
+
+func TestRepositoriesService_Create_withCustomProperties(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	input := &Repository{
+		Name: Ptr("n"),
+		CustomProperties: map[string]any{
+			"environment": "production",
+			"team":        "backend",
+			"priority":    1,
+		},
+	}
+
+	wantAcceptHeaders := []string{mediaTypeRepositoryTemplatePreview, mediaTypeRepositoryVisibilityPreview}
+	mux.HandleFunc("/orgs/o/repos", func(w http.ResponseWriter, r *http.Request) {
+		v := new(createRepoRequest)
+		assertNilError(t, json.NewDecoder(r.Body).Decode(v))
+
+		testMethod(t, r, "POST")
+		testHeader(t, r, "Accept", strings.Join(wantAcceptHeaders, ", "))
+		want := &createRepoRequest{
+			Name: Ptr("n"),
+			CustomProperties: map[string]any{
+				"environment": "production",
+				"team":        "backend",
+				"priority":    float64(1), // JSON unmarshals numbers as float64
+			},
+		}
+		if !cmp.Equal(v, want) {
+			t.Errorf("Request body = %+v, want %+v", v, want)
+		}
+
+		fmt.Fprint(w, `{"id":1}`)
+	})
+
+	ctx := t.Context()
+	repo, _, err := client.Repositories.Create(ctx, "o", input)
+	if err != nil {
+		t.Errorf("Repositories.Create returned error: %v", err)
+	}
+
+	want := &Repository{ID: Ptr(int64(1))}
 	if !cmp.Equal(repo, want) {
 		t.Errorf("Repositories.Create returned %+v, want %+v", repo, want)
 	}
@@ -310,7 +360,7 @@ func TestRepositoriesService_CreateFromTemplate(t *testing.T) {
 	client, mux, _ := setup(t)
 
 	templateRepoReq := &TemplateRepoRequest{
-		Name: String("n"),
+		Name: Ptr("n"),
 	}
 
 	mux.HandleFunc("/repos/to/tr/generate", func(w http.ResponseWriter, r *http.Request) {
@@ -319,7 +369,7 @@ func TestRepositoriesService_CreateFromTemplate(t *testing.T) {
 
 		testMethod(t, r, "POST")
 		testHeader(t, r, "Accept", mediaTypeRepositoryTemplatePreview)
-		want := &TemplateRepoRequest{Name: String("n")}
+		want := &TemplateRepoRequest{Name: Ptr("n")}
 		if !cmp.Equal(v, want) {
 			t.Errorf("Request body = %+v, want %+v", v, want)
 		}
@@ -327,13 +377,13 @@ func TestRepositoriesService_CreateFromTemplate(t *testing.T) {
 		fmt.Fprint(w, `{"id":1,"name":"n"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.CreateFromTemplate(ctx, "to", "tr", templateRepoReq)
 	if err != nil {
 		t.Errorf("Repositories.CreateFromTemplate returned error: %v", err)
 	}
 
-	want := &Repository{ID: Int64(1), Name: String("n")}
+	want := &Repository{ID: Ptr(int64(1)), Name: Ptr("n")}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.CreateFromTemplate returned %+v, want %+v", got, want)
 	}
@@ -364,13 +414,13 @@ func TestRepositoriesService_Get(t *testing.T) {
 		fmt.Fprint(w, `{"id":1,"name":"n","description":"d","owner":{"login":"l"},"license":{"key":"mit"},"security_and_analysis":{"advanced_security":{"status":"enabled"},"secret_scanning":{"status":"enabled"},"secret_scanning_push_protection":{"status":"enabled"},"dependabot_security_updates":{"status": "enabled"}, "secret_scanning_validity_checks":{"status":"enabled"}}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.Get(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Repositories.Get returned error: %v", err)
 	}
 
-	want := &Repository{ID: Int64(1), Name: String("n"), Description: String("d"), Owner: &User{Login: String("l")}, License: &License{Key: String("mit")}, SecurityAndAnalysis: &SecurityAndAnalysis{AdvancedSecurity: &AdvancedSecurity{Status: String("enabled")}, SecretScanning: &SecretScanning{String("enabled")}, SecretScanningPushProtection: &SecretScanningPushProtection{String("enabled")}, DependabotSecurityUpdates: &DependabotSecurityUpdates{String("enabled")}, SecretScanningValidityChecks: &SecretScanningValidityChecks{String("enabled")}}}
+	want := &Repository{ID: Ptr(int64(1)), Name: Ptr("n"), Description: Ptr("d"), Owner: &User{Login: Ptr("l")}, License: &License{Key: Ptr("mit")}, SecurityAndAnalysis: &SecurityAndAnalysis{AdvancedSecurity: &AdvancedSecurity{Status: Ptr("enabled")}, SecretScanning: &SecretScanning{Ptr("enabled")}, SecretScanningPushProtection: &SecretScanningPushProtection{Ptr("enabled")}, DependabotSecurityUpdates: &DependabotSecurityUpdates{Ptr("enabled")}, SecretScanningValidityChecks: &SecretScanningValidityChecks{Ptr("enabled")}}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.Get returned %+v, want %+v", got, want)
 	}
@@ -407,17 +457,17 @@ func TestRepositoriesService_GetCodeOfConduct(t *testing.T) {
 		)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.GetCodeOfConduct(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Repositories.GetCodeOfConduct returned error: %v", err)
 	}
 
 	want := &CodeOfConduct{
-		Key:  String("key"),
-		Name: String("name"),
-		URL:  String("url"),
-		Body: String("body"),
+		Key:  Ptr("key"),
+		Name: Ptr("name"),
+		URL:  Ptr("url"),
+		Body: Ptr("body"),
 	}
 
 	if !cmp.Equal(got, want) {
@@ -448,13 +498,13 @@ func TestRepositoriesService_GetByID(t *testing.T) {
 		fmt.Fprint(w, `{"id":1,"name":"n","description":"d","owner":{"login":"l"},"license":{"key":"mit"}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.GetByID(ctx, 1)
 	if err != nil {
 		t.Fatalf("Repositories.GetByID returned error: %v", err)
 	}
 
-	want := &Repository{ID: Int64(1), Name: String("n"), Description: String("d"), Owner: &User{Login: String("l")}, License: &License{Key: String("mit")}}
+	want := &Repository{ID: Ptr(int64(1)), Name: Ptr("n"), Description: Ptr("d"), Owner: &User{Login: Ptr("l")}, License: &License{Key: Ptr("mit")}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.GetByID returned %+v, want %+v", got, want)
 	}
@@ -489,13 +539,13 @@ func TestRepositoriesService_Edit(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.Edit(ctx, "o", "r", input)
 	if err != nil {
 		t.Errorf("Repositories.Edit returned error: %v", err)
 	}
 
-	want := &Repository{ID: Int64(1)}
+	want := &Repository{ID: Ptr(int64(1))}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.Edit returned %+v, want %+v", got, want)
 	}
@@ -519,11 +569,11 @@ func TestRepositoriesService_Delete(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Repositories.Delete(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Repositories.Delete returned error: %v", err)
@@ -544,7 +594,7 @@ func TestRepositoriesService_Get_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.Get(ctx, "%", "r")
 	testURLParseError(t, err)
 }
@@ -553,7 +603,7 @@ func TestRepositoriesService_Edit_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.Edit(ctx, "%", "r", nil)
 	testURLParseError(t, err)
 }
@@ -569,7 +619,7 @@ func TestRepositoriesService_GetVulnerabilityAlerts(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	vulnerabilityAlertsEnabled, _, err := client.Repositories.GetVulnerabilityAlerts(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Repositories.GetVulnerabilityAlerts returned error: %v", err)
@@ -605,7 +655,7 @@ func TestRepositoriesService_EnableVulnerabilityAlerts(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if _, err := client.Repositories.EnableVulnerabilityAlerts(ctx, "o", "r"); err != nil {
 		t.Errorf("Repositories.EnableVulnerabilityAlerts returned error: %v", err)
 	}
@@ -632,7 +682,7 @@ func TestRepositoriesService_DisableVulnerabilityAlerts(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if _, err := client.Repositories.DisableVulnerabilityAlerts(ctx, "o", "r"); err != nil {
 		t.Errorf("Repositories.DisableVulnerabilityAlerts returned error: %v", err)
 	}
@@ -658,7 +708,7 @@ func TestRepositoriesService_EnableAutomatedSecurityFixes(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if _, err := client.Repositories.EnableAutomatedSecurityFixes(ctx, "o", "r"); err != nil {
 		t.Errorf("Repositories.EnableAutomatedSecurityFixes returned error: %v", err)
 	}
@@ -673,18 +723,18 @@ func TestRepositoriesService_GetAutomatedSecurityFixes(t *testing.T) {
 		fmt.Fprint(w, `{"enabled": true, "paused": false}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	fixes, _, err := client.Repositories.GetAutomatedSecurityFixes(ctx, "o", "r")
 	if err != nil {
-		t.Errorf("Repositories.GetAutomatedSecurityFixes returned errpr: #{err}")
+		t.Errorf("Repositories.GetAutomatedSecurityFixes returned error: %v", err)
 	}
 
 	want := &AutomatedSecurityFixes{
-		Enabled: Bool(true),
-		Paused:  Bool(false),
+		Enabled: Ptr(true),
+		Paused:  Ptr(false),
 	}
 	if !cmp.Equal(fixes, want) {
-		t.Errorf("Repositories.GetAutomatedSecurityFixes returned #{fixes}, want #{want}")
+		t.Errorf("Repositories.GetAutomatedSecurityFixes returned %#v, want %#v", fixes, want)
 	}
 
 	const methodName = "GetAutomatedSecurityFixes"
@@ -711,7 +761,7 @@ func TestRepositoriesService_DisableAutomatedSecurityFixes(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if _, err := client.Repositories.DisableAutomatedSecurityFixes(ctx, "o", "r"); err != nil {
 		t.Errorf("Repositories.DisableAutomatedSecurityFixes returned error: %v", err)
 	}
@@ -731,13 +781,13 @@ func TestRepositoriesService_ListContributors(t *testing.T) {
 	})
 
 	opts := &ListContributorsOptions{Anon: "true", ListOptions: ListOptions{Page: 2}}
-	ctx := context.Background()
+	ctx := t.Context()
 	contributors, _, err := client.Repositories.ListContributors(ctx, "o", "r", opts)
 	if err != nil {
 		t.Errorf("Repositories.ListContributors returned error: %v", err)
 	}
 
-	want := []*Contributor{{Contributions: Int(42)}}
+	want := []*Contributor{{Contributions: Ptr(42)}}
 	if !cmp.Equal(contributors, want) {
 		t.Errorf("Repositories.ListContributors returned %+v, want %+v", contributors, want)
 	}
@@ -766,7 +816,7 @@ func TestRepositoriesService_ListLanguages(t *testing.T) {
 		fmt.Fprint(w, `{"go":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	languages, _, err := client.Repositories.ListLanguages(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Repositories.ListLanguages returned error: %v", err)
@@ -803,13 +853,13 @@ func TestRepositoriesService_ListTeams(t *testing.T) {
 	})
 
 	opt := &ListOptions{Page: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	teams, _, err := client.Repositories.ListTeams(ctx, "o", "r", opt)
 	if err != nil {
 		t.Errorf("Repositories.ListTeams returned error: %v", err)
 	}
 
-	want := []*Team{{ID: Int64(1)}}
+	want := []*Team{{ID: Ptr(int64(1))}}
 	if !cmp.Equal(teams, want) {
 		t.Errorf("Repositories.ListTeams returned %+v, want %+v", teams, want)
 	}
@@ -840,7 +890,7 @@ func TestRepositoriesService_ListTags(t *testing.T) {
 	})
 
 	opt := &ListOptions{Page: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	tags, _, err := client.Repositories.ListTags(ctx, "o", "r", opt)
 	if err != nil {
 		t.Errorf("Repositories.ListTags returned error: %v", err)
@@ -848,13 +898,13 @@ func TestRepositoriesService_ListTags(t *testing.T) {
 
 	want := []*RepositoryTag{
 		{
-			Name: String("n"),
+			Name: Ptr("n"),
 			Commit: &Commit{
-				SHA: String("s"),
-				URL: String("u"),
+				SHA: Ptr("s"),
+				URL: Ptr("u"),
 			},
-			ZipballURL: String("z"),
-			TarballURL: String("t"),
+			ZipballURL: Ptr("z"),
+			TarballURL: Ptr("t"),
 		},
 	}
 	if !cmp.Equal(tags, want) {
@@ -890,13 +940,13 @@ func TestRepositoriesService_ListBranches(t *testing.T) {
 		Protected:   nil,
 		ListOptions: ListOptions{Page: 2},
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	branches, _, err := client.Repositories.ListBranches(ctx, "o", "r", opt)
 	if err != nil {
 		t.Errorf("Repositories.ListBranches returned error: %v", err)
 	}
 
-	want := []*Branch{{Name: String("master"), Commit: &RepositoryCommit{SHA: String("a57781"), URL: String("https://api.github.com/repos/o/r/commits/a57781")}}}
+	want := []*Branch{{Name: Ptr("master"), Commit: &RepositoryCommit{SHA: Ptr("a57781"), URL: Ptr("https://api.github.com/repos/o/r/commits/a57781")}}}
 	if !cmp.Equal(branches, want) {
 		t.Errorf("Repositories.ListBranches returned %+v, want %+v", branches, want)
 	}
@@ -925,7 +975,7 @@ func TestRepositoriesService_GetBranch(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25"},
 	}
 
 	for _, test := range tests {
@@ -934,21 +984,21 @@ func TestRepositoriesService_GetBranch(t *testing.T) {
 			fmt.Fprint(w, `{"name":"n", "commit":{"sha":"s","commit":{"message":"m"}}, "protected":true, "protection":{"required_status_checks":{"contexts":["c"]}}}`)
 		})
 
-		ctx := context.Background()
+		ctx := t.Context()
 		branch, _, err := client.Repositories.GetBranch(ctx, "o", "r", test.branch, 0)
 		if err != nil {
 			t.Errorf("Repositories.GetBranch returned error: %v", err)
 		}
 
 		want := &Branch{
-			Name: String("n"),
+			Name: Ptr("n"),
 			Commit: &RepositoryCommit{
-				SHA: String("s"),
+				SHA: Ptr("s"),
 				Commit: &Commit{
-					Message: String("m"),
+					Message: Ptr("m"),
 				},
 			},
-			Protected: Bool(true),
+			Protected: Ptr(true),
 			Protection: &Protection{
 				RequiredStatusChecks: &RequiredStatusChecks{
 					Contexts: &[]string{"c"},
@@ -975,11 +1025,10 @@ func TestRepositoriesService_GetBranch_BadJSONResponse(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -989,7 +1038,7 @@ func TestRepositoriesService_GetBranch_BadJSONResponse(t *testing.T) {
 				fmt.Fprint(w, `{"name":"n", "commit":{"sha":...truncated`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			if _, _, err := client.Repositories.GetBranch(ctx, "o", "r", test.branch, 0); err == nil {
 				t.Error("Repositories.GetBranch returned no error; wanted JSON error")
 			}
@@ -1010,24 +1059,24 @@ func TestRepositoriesService_GetBranch_StatusMovedPermanently_followRedirects(t 
 		testMethod(t, r, "GET")
 		fmt.Fprint(w, `{"name":"n", "commit":{"sha":"s","commit":{"message":"m"}}, "protected":true, "protection":{"required_status_checks":{"contexts":["c"]}}}`)
 	})
-	ctx := context.Background()
+	ctx := t.Context()
 	branch, resp, err := client.Repositories.GetBranch(ctx, "o", "r", "b", 1)
 	if err != nil {
 		t.Errorf("Repositories.GetBranch returned error: %v", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("Repositories.GetBranch returned status: %d, want %d", resp.StatusCode, http.StatusOK)
+		t.Errorf("Repositories.GetBranch returned status: %v, want %v", resp.StatusCode, http.StatusOK)
 	}
 
 	want := &Branch{
-		Name: String("n"),
+		Name: Ptr("n"),
 		Commit: &RepositoryCommit{
-			SHA: String("s"),
+			SHA: Ptr("s"),
 			Commit: &Commit{
-				Message: String("m"),
+				Message: Ptr("m"),
 			},
 		},
-		Protected: Bool(true),
+		Protected: Ptr(true),
 		Protection: &Protection{
 			RequiredStatusChecks: &RequiredStatusChecks{
 				Contexts: &[]string{"c"},
@@ -1050,7 +1099,6 @@ func TestRepositoriesService_GetBranch_notFound(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -1059,17 +1107,17 @@ func TestRepositoriesService_GetBranch_notFound(t *testing.T) {
 				testMethod(t, r, "GET")
 				http.Error(w, "branch not found", http.StatusNotFound)
 			})
-			ctx := context.Background()
+			ctx := t.Context()
 			_, resp, err := client.Repositories.GetBranch(ctx, "o", "r", test.branch, 1)
 			if err == nil {
 				t.Error("Repositories.GetBranch returned error: nil")
 			}
 			if resp.StatusCode != http.StatusNotFound {
-				t.Errorf("Repositories.GetBranch returned status: %d, want %d", resp.StatusCode, http.StatusNotFound)
+				t.Errorf("Repositories.GetBranch returned status: %v, want %v", resp.StatusCode, http.StatusNotFound)
 			}
 
 			// Add custom round tripper
-			client.client.Transport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			client.client.Transport = roundTripperFunc(func(*http.Request) (*http.Response, error) {
 				return nil, errors.New("failed to get branch")
 			})
 
@@ -1089,11 +1137,10 @@ func TestRepositoriesService_RenameBranch(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/rename"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/rename"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/rename"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -1113,13 +1160,13 @@ func TestRepositoriesService_RenameBranch(t *testing.T) {
 				fmt.Fprint(w, `{"protected":true,"name":"nn"}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.RenameBranch(ctx, "o", "r", test.branch, renameBranchReq)
 			if err != nil {
 				t.Errorf("Repositories.RenameBranch returned error: %v", err)
 			}
 
-			want := &Branch{Name: String("nn"), Protected: Bool(true)}
+			want := &Branch{Name: Ptr("nn"), Protected: Ptr(true)}
 			if !cmp.Equal(got, want) {
 				t.Errorf("Repositories.RenameBranch returned %+v, want %+v", got, want)
 			}
@@ -1149,18 +1196,16 @@ func TestRepositoriesService_GetBranchProtection(t *testing.T) {
 		enforceAdminsURLPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection", enforceAdminsURLPath: "/repos/o/r/branches/b/protection/enforce_admins"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection", enforceAdminsURLPath: "/repos/o/r/branches/feat/branch-50%/protection/enforce_admins"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection", enforceAdminsURLPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/enforce_admins"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "GET")
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
 				fmt.Fprintf(w, `{
 						"required_status_checks":{
@@ -1194,7 +1239,7 @@ func TestRepositoriesService_GetBranchProtection(t *testing.T) {
 							"required_approving_review_count":1
 							},
 							"enforce_admins":{
-								"url":"%s",
+								"url":"%v",
 								"enabled":true
 							},
 							"restrictions":{
@@ -1217,7 +1262,7 @@ func TestRepositoriesService_GetBranchProtection(t *testing.T) {
 						}`, test.enforceAdminsURLPath)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			protection, _, err := client.Repositories.GetBranchProtection(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.GetBranchProtection returned error: %v", err)
@@ -1237,13 +1282,13 @@ func TestRepositoriesService_GetBranchProtection(t *testing.T) {
 					DismissStaleReviews: true,
 					DismissalRestrictions: &DismissalRestrictions{
 						Users: []*User{
-							{Login: String("u"), ID: Int64(3)},
+							{Login: Ptr("u"), ID: Ptr(int64(3))},
 						},
 						Teams: []*Team{
-							{Slug: String("t"), ID: Int64(4)},
+							{Slug: Ptr("t"), ID: Ptr(int64(4))},
 						},
 						Apps: []*App{
-							{Slug: String("a"), ID: Int64(5)},
+							{Slug: Ptr("a"), ID: Ptr(int64(5))},
 						},
 					},
 					RequireCodeOwnerReviews:      true,
@@ -1251,31 +1296,31 @@ func TestRepositoriesService_GetBranchProtection(t *testing.T) {
 					RequireLastPushApproval:      false,
 				},
 				EnforceAdmins: &AdminEnforcement{
-					URL:     String(test.enforceAdminsURLPath),
+					URL:     Ptr(test.enforceAdminsURLPath),
 					Enabled: true,
 				},
 				Restrictions: &BranchRestrictions{
 					Users: []*User{
-						{Login: String("u"), ID: Int64(1)},
+						{Login: Ptr("u"), ID: Ptr(int64(1))},
 					},
 					Teams: []*Team{
-						{Slug: String("t"), ID: Int64(2)},
+						{Slug: Ptr("t"), ID: Ptr(int64(2))},
 					},
 					Apps: []*App{
-						{Slug: String("a"), ID: Int64(3)},
+						{Slug: Ptr("a"), ID: Ptr(int64(3))},
 					},
 				},
 				RequiredConversationResolution: &RequiredConversationResolution{
 					Enabled: true,
 				},
 				BlockCreations: &BlockCreations{
-					Enabled: Bool(false),
+					Enabled: Ptr(false),
 				},
 				LockBranch: &LockBranch{
-					Enabled: Bool(false),
+					Enabled: Ptr(false),
 				},
 				AllowForkSyncing: &AllowForkSyncing{
-					Enabled: Bool(false),
+					Enabled: Ptr(false),
 				},
 			}
 			if !cmp.Equal(protection, want) {
@@ -1309,13 +1354,12 @@ func TestRepositoriesService_GetBranchProtection_noDismissalRestrictions(t *test
 		enforceAdminsURLPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection", enforceAdminsURLPath: "/repos/o/r/branches/b/protection/enforce_admins"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection", enforceAdminsURLPath: "/repos/o/r/branches/feat/branch-50%/protection/enforce_admins"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection", enforceAdminsURLPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/enforce_admins"},
 	}
 
 	for _, test := range tests {
 		mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
 			testMethod(t, r, "GET")
-			// TODO: remove custom Accept header when this API fully launches
 			testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
 			fmt.Fprintf(w, `{
 					"required_status_checks":{
@@ -1334,7 +1378,7 @@ func TestRepositoriesService_GetBranchProtection_noDismissalRestrictions(t *test
 						"required_approving_review_count":1
 						},
 						"enforce_admins":{
-							"url":"%s",
+							"url":"%v",
 							"enabled":true
 						},
 						"restrictions":{
@@ -1344,7 +1388,7 @@ func TestRepositoriesService_GetBranchProtection_noDismissalRestrictions(t *test
 					}`, test.enforceAdminsURLPath)
 		})
 
-		ctx := context.Background()
+		ctx := t.Context()
 		protection, _, err := client.Repositories.GetBranchProtection(ctx, "o", "r", test.branch)
 		if err != nil {
 			t.Errorf("Repositories.GetBranchProtection returned error: %v", err)
@@ -1367,15 +1411,15 @@ func TestRepositoriesService_GetBranchProtection_noDismissalRestrictions(t *test
 				RequiredApprovingReviewCount: 1,
 			},
 			EnforceAdmins: &AdminEnforcement{
-				URL:     String(test.enforceAdminsURLPath),
+				URL:     Ptr(test.enforceAdminsURLPath),
 				Enabled: true,
 			},
 			Restrictions: &BranchRestrictions{
 				Users: []*User{
-					{Login: String("u"), ID: Int64(1)},
+					{Login: Ptr("u"), ID: Ptr(int64(1))},
 				},
 				Teams: []*Team{
-					{Slug: String("t"), ID: Int64(2)},
+					{Slug: Ptr("t"), ID: Ptr(int64(2))},
 				},
 			},
 		}
@@ -1392,11 +1436,10 @@ func TestRepositoriesService_GetBranchProtection_branchNotProtected(t *testing.T
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -1411,14 +1454,14 @@ func TestRepositoriesService_GetBranchProtection_branchNotProtected(t *testing.T
 					}`, githubBranchNotProtected)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			protection, _, err := client.Repositories.GetBranchProtection(ctx, "o", "r", test.branch)
 
 			if protection != nil {
-				t.Errorf("Repositories.GetBranchProtection returned non-nil protection data")
+				t.Error("Repositories.GetBranchProtection returned non-nil protection data")
 			}
 
-			if err != ErrBranchNotProtected {
+			if !errors.Is(err, ErrBranchNotProtected) {
 				t.Errorf("Repositories.GetBranchProtection returned an invalid error: %v", err)
 			}
 		})
@@ -1432,11 +1475,10 @@ func TestRepositoriesService_UpdateBranchProtection_Contexts(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -1464,9 +1506,9 @@ func TestRepositoriesService_UpdateBranchProtection_Contexts(t *testing.T) {
 					Teams: []string{"t"},
 					Apps:  []string{"a"},
 				},
-				BlockCreations:   Bool(true),
-				LockBranch:       Bool(true),
-				AllowForkSyncing: Bool(true),
+				BlockCreations:   Ptr(true),
+				LockBranch:       Ptr(true),
+				AllowForkSyncing: Ptr(true),
 			}
 
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
@@ -1478,9 +1520,8 @@ func TestRepositoriesService_UpdateBranchProtection_Contexts(t *testing.T) {
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
 
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"required_status_checks":{
 						"strict":true,
 						"contexts":["continuous-integration"],
@@ -1531,7 +1572,7 @@ func TestRepositoriesService_UpdateBranchProtection_Contexts(t *testing.T) {
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			protection, _, err := client.Repositories.UpdateBranchProtection(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdateBranchProtection returned error: %v", err)
@@ -1551,47 +1592,47 @@ func TestRepositoriesService_UpdateBranchProtection_Contexts(t *testing.T) {
 					DismissStaleReviews: true,
 					DismissalRestrictions: &DismissalRestrictions{
 						Users: []*User{
-							{Login: String("uu"), ID: Int64(3)},
+							{Login: Ptr("uu"), ID: Ptr(int64(3))},
 						},
 						Teams: []*Team{
-							{Slug: String("tt"), ID: Int64(4)},
+							{Slug: Ptr("tt"), ID: Ptr(int64(4))},
 						},
 						Apps: []*App{
-							{Slug: String("aa"), ID: Int64(5)},
+							{Slug: Ptr("aa"), ID: Ptr(int64(5))},
 						},
 					},
 					RequireCodeOwnerReviews: true,
 					BypassPullRequestAllowances: &BypassPullRequestAllowances{
 						Users: []*User{
-							{Login: String("uuu"), ID: Int64(10)},
+							{Login: Ptr("uuu"), ID: Ptr(int64(10))},
 						},
 						Teams: []*Team{
-							{Slug: String("ttt"), ID: Int64(20)},
+							{Slug: Ptr("ttt"), ID: Ptr(int64(20))},
 						},
 						Apps: []*App{
-							{Slug: String("aaa"), ID: Int64(30)},
+							{Slug: Ptr("aaa"), ID: Ptr(int64(30))},
 						},
 					},
 				},
 				Restrictions: &BranchRestrictions{
 					Users: []*User{
-						{Login: String("u"), ID: Int64(1)},
+						{Login: Ptr("u"), ID: Ptr(int64(1))},
 					},
 					Teams: []*Team{
-						{Slug: String("t"), ID: Int64(2)},
+						{Slug: Ptr("t"), ID: Ptr(int64(2))},
 					},
 					Apps: []*App{
-						{Slug: String("a"), ID: Int64(3)},
+						{Slug: Ptr("a"), ID: Ptr(int64(3))},
 					},
 				},
 				BlockCreations: &BlockCreations{
-					Enabled: Bool(true),
+					Enabled: Ptr(true),
 				},
 				LockBranch: &LockBranch{
-					Enabled: Bool(true),
+					Enabled: Ptr(true),
 				},
 				AllowForkSyncing: &AllowForkSyncing{
-					Enabled: Bool(true),
+					Enabled: Ptr(true),
 				},
 			}
 			if !cmp.Equal(protection, want) {
@@ -1622,11 +1663,10 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyContexts(t *testing.T) 
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -1654,9 +1694,9 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyContexts(t *testing.T) 
 					Teams: []string{"t"},
 					Apps:  []string{"a"},
 				},
-				BlockCreations:   Bool(true),
-				LockBranch:       Bool(true),
-				AllowForkSyncing: Bool(true),
+				BlockCreations:   Ptr(true),
+				LockBranch:       Ptr(true),
+				AllowForkSyncing: Ptr(true),
 			}
 
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
@@ -1668,9 +1708,8 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyContexts(t *testing.T) 
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
 
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"required_status_checks":{
 						"strict":true,
 						"contexts":[],
@@ -1716,7 +1755,7 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyContexts(t *testing.T) 
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			protection, _, err := client.Repositories.UpdateBranchProtection(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdateBranchProtection returned error: %v", err)
@@ -1731,47 +1770,47 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyContexts(t *testing.T) 
 					DismissStaleReviews: true,
 					DismissalRestrictions: &DismissalRestrictions{
 						Users: []*User{
-							{Login: String("uu"), ID: Int64(3)},
+							{Login: Ptr("uu"), ID: Ptr(int64(3))},
 						},
 						Teams: []*Team{
-							{Slug: String("tt"), ID: Int64(4)},
+							{Slug: Ptr("tt"), ID: Ptr(int64(4))},
 						},
 						Apps: []*App{
-							{Slug: String("aa"), ID: Int64(5)},
+							{Slug: Ptr("aa"), ID: Ptr(int64(5))},
 						},
 					},
 					RequireCodeOwnerReviews: true,
 					BypassPullRequestAllowances: &BypassPullRequestAllowances{
 						Users: []*User{
-							{Login: String("uuu"), ID: Int64(10)},
+							{Login: Ptr("uuu"), ID: Ptr(int64(10))},
 						},
 						Teams: []*Team{
-							{Slug: String("ttt"), ID: Int64(20)},
+							{Slug: Ptr("ttt"), ID: Ptr(int64(20))},
 						},
 						Apps: []*App{
-							{Slug: String("aaa"), ID: Int64(30)},
+							{Slug: Ptr("aaa"), ID: Ptr(int64(30))},
 						},
 					},
 				},
 				Restrictions: &BranchRestrictions{
 					Users: []*User{
-						{Login: String("u"), ID: Int64(1)},
+						{Login: Ptr("u"), ID: Ptr(int64(1))},
 					},
 					Teams: []*Team{
-						{Slug: String("t"), ID: Int64(2)},
+						{Slug: Ptr("t"), ID: Ptr(int64(2))},
 					},
 					Apps: []*App{
-						{Slug: String("a"), ID: Int64(3)},
+						{Slug: Ptr("a"), ID: Ptr(int64(3))},
 					},
 				},
 				BlockCreations: &BlockCreations{
-					Enabled: Bool(true),
+					Enabled: Ptr(true),
 				},
 				LockBranch: &LockBranch{
-					Enabled: Bool(true),
+					Enabled: Ptr(true),
 				},
 				AllowForkSyncing: &AllowForkSyncing{
-					Enabled: Bool(true),
+					Enabled: Ptr(true),
 				},
 			}
 			if !cmp.Equal(protection, want) {
@@ -1802,11 +1841,10 @@ func TestRepositoriesService_UpdateBranchProtection_Checks(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -1849,9 +1887,8 @@ func TestRepositoriesService_UpdateBranchProtection_Checks(t *testing.T) {
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
 
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"required_status_checks":{
 						"strict":true,
 						"contexts":["continuous-integration"],
@@ -1893,7 +1930,7 @@ func TestRepositoriesService_UpdateBranchProtection_Checks(t *testing.T) {
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			protection, _, err := client.Repositories.UpdateBranchProtection(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdateBranchProtection returned error: %v", err)
@@ -1913,37 +1950,37 @@ func TestRepositoriesService_UpdateBranchProtection_Checks(t *testing.T) {
 					DismissStaleReviews: true,
 					DismissalRestrictions: &DismissalRestrictions{
 						Users: []*User{
-							{Login: String("uu"), ID: Int64(3)},
+							{Login: Ptr("uu"), ID: Ptr(int64(3))},
 						},
 						Teams: []*Team{
-							{Slug: String("tt"), ID: Int64(4)},
+							{Slug: Ptr("tt"), ID: Ptr(int64(4))},
 						},
 						Apps: []*App{
-							{Slug: String("aa"), ID: Int64(5)},
+							{Slug: Ptr("aa"), ID: Ptr(int64(5))},
 						},
 					},
 					RequireCodeOwnerReviews: true,
 					BypassPullRequestAllowances: &BypassPullRequestAllowances{
 						Users: []*User{
-							{Login: String("uuu"), ID: Int64(10)},
+							{Login: Ptr("uuu"), ID: Ptr(int64(10))},
 						},
 						Teams: []*Team{
-							{Slug: String("ttt"), ID: Int64(20)},
+							{Slug: Ptr("ttt"), ID: Ptr(int64(20))},
 						},
 						Apps: []*App{
-							{Slug: String("aaa"), ID: Int64(30)},
+							{Slug: Ptr("aaa"), ID: Ptr(int64(30))},
 						},
 					},
 				},
 				Restrictions: &BranchRestrictions{
 					Users: []*User{
-						{Login: String("u"), ID: Int64(1)},
+						{Login: Ptr("u"), ID: Ptr(int64(1))},
 					},
 					Teams: []*Team{
-						{Slug: String("t"), ID: Int64(2)},
+						{Slug: Ptr("t"), ID: Ptr(int64(2))},
 					},
 					Apps: []*App{
-						{Slug: String("a"), ID: Int64(3)},
+						{Slug: Ptr("a"), ID: Ptr(int64(3))},
 					},
 				},
 			}
@@ -1961,11 +1998,10 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyChecks(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2004,9 +2040,8 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyChecks(t *testing.T) {
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
 
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"required_status_checks":{
 						"strict":true,
 						"contexts":null,
@@ -2043,7 +2078,7 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyChecks(t *testing.T) {
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			protection, _, err := client.Repositories.UpdateBranchProtection(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdateBranchProtection returned error: %v", err)
@@ -2058,37 +2093,37 @@ func TestRepositoriesService_UpdateBranchProtection_EmptyChecks(t *testing.T) {
 					DismissStaleReviews: true,
 					DismissalRestrictions: &DismissalRestrictions{
 						Users: []*User{
-							{Login: String("uu"), ID: Int64(3)},
+							{Login: Ptr("uu"), ID: Ptr(int64(3))},
 						},
 						Teams: []*Team{
-							{Slug: String("tt"), ID: Int64(4)},
+							{Slug: Ptr("tt"), ID: Ptr(int64(4))},
 						},
 						Apps: []*App{
-							{Slug: String("aa"), ID: Int64(5)},
+							{Slug: Ptr("aa"), ID: Ptr(int64(5))},
 						},
 					},
 					RequireCodeOwnerReviews: true,
 					BypassPullRequestAllowances: &BypassPullRequestAllowances{
 						Users: []*User{
-							{Login: String("uuu"), ID: Int64(10)},
+							{Login: Ptr("uuu"), ID: Ptr(int64(10))},
 						},
 						Teams: []*Team{
-							{Slug: String("ttt"), ID: Int64(20)},
+							{Slug: Ptr("ttt"), ID: Ptr(int64(20))},
 						},
 						Apps: []*App{
-							{Slug: String("aaa"), ID: Int64(30)},
+							{Slug: Ptr("aaa"), ID: Ptr(int64(30))},
 						},
 					},
 				},
 				Restrictions: &BranchRestrictions{
 					Users: []*User{
-						{Login: String("u"), ID: Int64(1)},
+						{Login: Ptr("u"), ID: Ptr(int64(1))},
 					},
 					Teams: []*Team{
-						{Slug: String("t"), ID: Int64(2)},
+						{Slug: Ptr("t"), ID: Ptr(int64(2))},
 					},
 					Apps: []*App{
-						{Slug: String("a"), ID: Int64(3)},
+						{Slug: Ptr("a"), ID: Ptr(int64(3))},
 					},
 				},
 			}
@@ -2106,11 +2141,10 @@ func TestRepositoriesService_UpdateBranchProtection_StrictNoChecks(t *testing.T)
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2148,9 +2182,8 @@ func TestRepositoriesService_UpdateBranchProtection_StrictNoChecks(t *testing.T)
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
 
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"required_status_checks":{
 						"strict":true,
 						"contexts":[]
@@ -2187,7 +2220,7 @@ func TestRepositoriesService_UpdateBranchProtection_StrictNoChecks(t *testing.T)
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			protection, _, err := client.Repositories.UpdateBranchProtection(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdateBranchProtection returned error: %v", err)
@@ -2202,37 +2235,37 @@ func TestRepositoriesService_UpdateBranchProtection_StrictNoChecks(t *testing.T)
 					DismissStaleReviews: true,
 					DismissalRestrictions: &DismissalRestrictions{
 						Users: []*User{
-							{Login: String("uu"), ID: Int64(3)},
+							{Login: Ptr("uu"), ID: Ptr(int64(3))},
 						},
 						Teams: []*Team{
-							{Slug: String("tt"), ID: Int64(4)},
+							{Slug: Ptr("tt"), ID: Ptr(int64(4))},
 						},
 						Apps: []*App{
-							{Slug: String("aa"), ID: Int64(5)},
+							{Slug: Ptr("aa"), ID: Ptr(int64(5))},
 						},
 					},
 					RequireCodeOwnerReviews: true,
 					BypassPullRequestAllowances: &BypassPullRequestAllowances{
 						Users: []*User{
-							{Login: String("uuu"), ID: Int64(10)},
+							{Login: Ptr("uuu"), ID: Ptr(int64(10))},
 						},
 						Teams: []*Team{
-							{Slug: String("ttt"), ID: Int64(20)},
+							{Slug: Ptr("ttt"), ID: Ptr(int64(20))},
 						},
 						Apps: []*App{
-							{Slug: String("aaa"), ID: Int64(30)},
+							{Slug: Ptr("aaa"), ID: Ptr(int64(30))},
 						},
 					},
 				},
 				Restrictions: &BranchRestrictions{
 					Users: []*User{
-						{Login: String("u"), ID: Int64(1)},
+						{Login: Ptr("u"), ID: Ptr(int64(1))},
 					},
 					Teams: []*Team{
-						{Slug: String("t"), ID: Int64(2)},
+						{Slug: Ptr("t"), ID: Ptr(int64(2))},
 					},
 					Apps: []*App{
-						{Slug: String("a"), ID: Int64(3)},
+						{Slug: Ptr("a"), ID: Ptr(int64(3))},
 					},
 				},
 			}
@@ -2250,18 +2283,17 @@ func TestRepositoriesService_UpdateBranchProtection_RequireLastPushApproval(t *t
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			input := &ProtectionRequest{
 				RequiredPullRequestReviews: &PullRequestReviewsEnforcementRequest{
-					RequireLastPushApproval: Bool(true),
+					RequireLastPushApproval: Ptr(true),
 				},
 			}
 
@@ -2274,14 +2306,14 @@ func TestRepositoriesService_UpdateBranchProtection_RequireLastPushApproval(t *t
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
 
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"required_pull_request_reviews":{
 						"require_last_push_approval":true
 					}
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			protection, _, err := client.Repositories.UpdateBranchProtection(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdateBranchProtection returned error: %v", err)
@@ -2306,11 +2338,10 @@ func TestRepositoriesService_RemoveBranchProtection(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2320,7 +2351,7 @@ func TestRepositoriesService_RemoveBranchProtection(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := client.Repositories.RemoveBranchProtection(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.RemoveBranchProtection returned error: %v", err)
@@ -2343,7 +2374,7 @@ func TestRepositoriesService_ListLanguages_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.ListLanguages(ctx, "%", "%")
 	testURLParseError(t, err)
 }
@@ -2357,21 +2388,21 @@ func TestRepositoriesService_License(t *testing.T) {
 		fmt.Fprint(w, `{"name": "LICENSE", "path": "LICENSE", "license":{"key":"mit","name":"MIT License","spdx_id":"MIT","url":"https://api.github.com/licenses/mit","featured":true}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.License(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Repositories.License returned error: %v", err)
 	}
 
 	want := &RepositoryLicense{
-		Name: String("LICENSE"),
-		Path: String("LICENSE"),
+		Name: Ptr("LICENSE"),
+		Path: Ptr("LICENSE"),
 		License: &License{
-			Name:     String("MIT License"),
-			Key:      String("mit"),
-			SPDXID:   String("MIT"),
-			URL:      String("https://api.github.com/licenses/mit"),
-			Featured: Bool(true),
+			Name:     Ptr("MIT License"),
+			Key:      Ptr("mit"),
+			SPDXID:   Ptr("MIT"),
+			URL:      Ptr("https://api.github.com/licenses/mit"),
+			Featured: Ptr(true),
 		},
 	}
 
@@ -2401,11 +2432,10 @@ func TestRepositoriesService_GetRequiredStatusChecks(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_status_checks"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_status_checks"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_status_checks"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2432,7 +2462,7 @@ func TestRepositoriesService_GetRequiredStatusChecks(t *testing.T) {
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			checks, _, err := client.Repositories.GetRequiredStatusChecks(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.GetRequiredStatusChecks returned error: %v", err)
@@ -2481,11 +2511,10 @@ func TestRepositoriesService_GetRequiredStatusChecks_branchNotProtected(t *testi
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_status_checks"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_status_checks"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_status_checks"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2500,14 +2529,14 @@ func TestRepositoriesService_GetRequiredStatusChecks_branchNotProtected(t *testi
 			}`, githubBranchNotProtected)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			checks, _, err := client.Repositories.GetRequiredStatusChecks(ctx, "o", "r", test.branch)
 
 			if checks != nil {
-				t.Errorf("Repositories.GetRequiredStatusChecks returned non-nil status-checks data")
+				t.Error("Repositories.GetRequiredStatusChecks returned non-nil status-checks data")
 			}
 
-			if err != ErrBranchNotProtected {
+			if !errors.Is(err, ErrBranchNotProtected) {
 				t.Errorf("Repositories.GetRequiredStatusChecks returned an invalid error: %v", err)
 			}
 		})
@@ -2521,17 +2550,16 @@ func TestRepositoriesService_UpdateRequiredStatusChecks_Contexts(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_status_checks"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_status_checks"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_status_checks"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			input := &RequiredStatusChecksRequest{
-				Strict:   Bool(true),
+				Strict:   Ptr(true),
 				Contexts: []string{"continuous-integration"},
 			}
 
@@ -2544,7 +2572,7 @@ func TestRepositoriesService_UpdateRequiredStatusChecks_Contexts(t *testing.T) {
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
 				testHeader(t, r, "Accept", mediaTypeV3)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"strict":true,
 					"contexts":["continuous-integration"],
 					"checks": [
@@ -2556,7 +2584,7 @@ func TestRepositoriesService_UpdateRequiredStatusChecks_Contexts(t *testing.T) {
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			statusChecks, _, err := client.Repositories.UpdateRequiredStatusChecks(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdateRequiredStatusChecks returned error: %v", err)
@@ -2599,11 +2627,10 @@ func TestRepositoriesService_UpdateRequiredStatusChecks_Checks(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_status_checks"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_status_checks"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_status_checks"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2611,7 +2638,7 @@ func TestRepositoriesService_UpdateRequiredStatusChecks_Checks(t *testing.T) {
 			appID := int64(123)
 			noAppID := int64(-1)
 			input := &RequiredStatusChecksRequest{
-				Strict: Bool(true),
+				Strict: Ptr(true),
 				Checks: []*RequiredStatusCheck{
 					{
 						Context: "continuous-integration",
@@ -2636,7 +2663,7 @@ func TestRepositoriesService_UpdateRequiredStatusChecks_Checks(t *testing.T) {
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
 				testHeader(t, r, "Accept", mediaTypeV3)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"strict":true,
 					"contexts":["continuous-integration"],
 					"checks": [
@@ -2656,7 +2683,7 @@ func TestRepositoriesService_UpdateRequiredStatusChecks_Checks(t *testing.T) {
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			statusChecks, _, err := client.Repositories.UpdateRequiredStatusChecks(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdateRequiredStatusChecks returned error: %v", err)
@@ -2692,11 +2719,10 @@ func TestRepositoriesService_RemoveRequiredStatusChecks(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_status_checks"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_status_checks"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_status_checks"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2707,7 +2733,7 @@ func TestRepositoriesService_RemoveRequiredStatusChecks(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := client.Repositories.RemoveRequiredStatusChecks(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.RemoveRequiredStatusChecks returned error: %v", err)
@@ -2733,11 +2759,10 @@ func TestRepositoriesService_ListRequiredStatusChecksContexts(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_status_checks/contexts"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_status_checks/contexts"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_status_checks/contexts"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2747,7 +2772,7 @@ func TestRepositoriesService_ListRequiredStatusChecksContexts(t *testing.T) {
 				fmt.Fprint(w, `["x", "y", "z"]`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			contexts, _, err := client.Repositories.ListRequiredStatusChecksContexts(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.ListRequiredStatusChecksContexts returned error: %v", err)
@@ -2782,11 +2807,10 @@ func TestRepositoriesService_ListRequiredStatusChecksContexts_branchNotProtected
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_status_checks/contexts"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_status_checks/contexts"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_status_checks/contexts"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2801,14 +2825,14 @@ func TestRepositoriesService_ListRequiredStatusChecksContexts_branchNotProtected
 			}`, githubBranchNotProtected)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			contexts, _, err := client.Repositories.ListRequiredStatusChecksContexts(ctx, "o", "r", test.branch)
 
 			if contexts != nil {
-				t.Errorf("Repositories.ListRequiredStatusChecksContexts returned non-nil contexts data")
+				t.Error("Repositories.ListRequiredStatusChecksContexts returned non-nil contexts data")
 			}
 
-			if err != ErrBranchNotProtected {
+			if !errors.Is(err, ErrBranchNotProtected) {
 				t.Errorf("Repositories.ListRequiredStatusChecksContexts returned an invalid error: %v", err)
 			}
 		})
@@ -2822,20 +2846,18 @@ func TestRepositoriesService_GetPullRequestReviewEnforcement(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_pull_request_reviews"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_pull_request_reviews"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_pull_request_reviews"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "GET")
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 			"dismissal_restrictions":{
 				"users":[{"id":1,"login":"u"}],
 				"teams":[{"id":2,"slug":"t"}],
@@ -2847,7 +2869,7 @@ func TestRepositoriesService_GetPullRequestReviewEnforcement(t *testing.T) {
 		}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			enforcement, _, err := client.Repositories.GetPullRequestReviewEnforcement(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.GetPullRequestReviewEnforcement returned error: %v", err)
@@ -2857,13 +2879,13 @@ func TestRepositoriesService_GetPullRequestReviewEnforcement(t *testing.T) {
 				DismissStaleReviews: true,
 				DismissalRestrictions: &DismissalRestrictions{
 					Users: []*User{
-						{Login: String("u"), ID: Int64(1)},
+						{Login: Ptr("u"), ID: Ptr(int64(1))},
 					},
 					Teams: []*Team{
-						{Slug: String("t"), ID: Int64(2)},
+						{Slug: Ptr("t"), ID: Ptr(int64(2))},
 					},
 					Apps: []*App{
-						{Slug: String("a"), ID: Int64(3)},
+						{Slug: Ptr("a"), ID: Ptr(int64(3))},
 					},
 				},
 				RequireCodeOwnerReviews:      true,
@@ -2898,11 +2920,10 @@ func TestRepositoriesService_UpdatePullRequestReviewEnforcement(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_pull_request_reviews"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_pull_request_reviews"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_pull_request_reviews"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -2923,9 +2944,8 @@ func TestRepositoriesService_UpdatePullRequestReviewEnforcement(t *testing.T) {
 				if !cmp.Equal(v, input) {
 					t.Errorf("Request body = %+v, want %+v", v, input)
 				}
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
-				fmt.Fprintf(w, `{
+				fmt.Fprint(w, `{
 					"dismissal_restrictions":{
 						"users":[{"id":1,"login":"u"}],
 						"teams":[{"id":2,"slug":"t"}],
@@ -2937,7 +2957,7 @@ func TestRepositoriesService_UpdatePullRequestReviewEnforcement(t *testing.T) {
 				}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			enforcement, _, err := client.Repositories.UpdatePullRequestReviewEnforcement(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.UpdatePullRequestReviewEnforcement returned error: %v", err)
@@ -2947,13 +2967,13 @@ func TestRepositoriesService_UpdatePullRequestReviewEnforcement(t *testing.T) {
 				DismissStaleReviews: true,
 				DismissalRestrictions: &DismissalRestrictions{
 					Users: []*User{
-						{Login: String("u"), ID: Int64(1)},
+						{Login: Ptr("u"), ID: Ptr(int64(1))},
 					},
 					Teams: []*Team{
-						{Slug: String("t"), ID: Int64(2)},
+						{Slug: Ptr("t"), ID: Ptr(int64(2))},
 					},
 					Apps: []*App{
-						{Slug: String("a"), ID: Int64(3)},
+						{Slug: Ptr("a"), ID: Ptr(int64(3))},
 					},
 				},
 				RequireCodeOwnerReviews:      true,
@@ -2987,24 +3007,22 @@ func TestRepositoriesService_DisableDismissalRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_pull_request_reviews"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_pull_request_reviews"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_pull_request_reviews"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "PATCH")
-				// TODO: remove custom Accept header when this API fully launches
 				testHeader(t, r, "Accept", mediaTypeRequiredApprovingReviewsPreview)
 				testBody(t, r, `{"dismissal_restrictions":{}}`+"\n")
-				fmt.Fprintf(w, `{"dismiss_stale_reviews":true,"require_code_owner_reviews":true,"required_approving_review_count":1}`)
+				fmt.Fprint(w, `{"dismiss_stale_reviews":true,"require_code_owner_reviews":true,"required_approving_review_count":1}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			enforcement, _, err := client.Repositories.DisableDismissalRestrictions(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.DisableDismissalRestrictions returned error: %v", err)
@@ -3044,11 +3062,10 @@ func TestRepositoriesService_RemovePullRequestReviewEnforcement(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_pull_request_reviews"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_pull_request_reviews"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_pull_request_reviews"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3058,7 +3075,7 @@ func TestRepositoriesService_RemovePullRequestReviewEnforcement(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := client.Repositories.RemovePullRequestReviewEnforcement(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.RemovePullRequestReviewEnforcement returned error: %v", err)
@@ -3084,28 +3101,27 @@ func TestRepositoriesService_GetAdminEnforcement(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/enforce_admins"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/enforce_admins"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/enforce_admins"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "GET")
-				fmt.Fprintf(w, `{"url":"/repos/o/r/branches/b/protection/enforce_admins","enabled":true}`)
+				fmt.Fprint(w, `{"url":"/repos/o/r/branches/b/protection/enforce_admins","enabled":true}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			enforcement, _, err := client.Repositories.GetAdminEnforcement(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.GetAdminEnforcement returned error: %v", err)
 			}
 
 			want := &AdminEnforcement{
-				URL:     String("/repos/o/r/branches/b/protection/enforce_admins"),
+				URL:     Ptr("/repos/o/r/branches/b/protection/enforce_admins"),
 				Enabled: true,
 			}
 
@@ -3137,28 +3153,27 @@ func TestRepositoriesService_AddAdminEnforcement(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/enforce_admins"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/enforce_admins"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/enforce_admins"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "POST")
-				fmt.Fprintf(w, `{"url":"/repos/o/r/branches/b/protection/enforce_admins","enabled":true}`)
+				fmt.Fprint(w, `{"url":"/repos/o/r/branches/b/protection/enforce_admins","enabled":true}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			enforcement, _, err := client.Repositories.AddAdminEnforcement(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.AddAdminEnforcement returned error: %v", err)
 			}
 
 			want := &AdminEnforcement{
-				URL:     String("/repos/o/r/branches/b/protection/enforce_admins"),
+				URL:     Ptr("/repos/o/r/branches/b/protection/enforce_admins"),
 				Enabled: true,
 			}
 			if !cmp.Equal(enforcement, want) {
@@ -3189,11 +3204,10 @@ func TestRepositoriesService_RemoveAdminEnforcement(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/enforce_admins"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/enforce_admins"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/enforce_admins"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3203,7 +3217,7 @@ func TestRepositoriesService_RemoveAdminEnforcement(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := client.Repositories.RemoveAdminEnforcement(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.RemoveAdminEnforcement returned error: %v", err)
@@ -3229,11 +3243,10 @@ func TestRepositoriesService_GetSignaturesProtectedBranch(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_signatures"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_signatures"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_signatures"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3241,18 +3254,18 @@ func TestRepositoriesService_GetSignaturesProtectedBranch(t *testing.T) {
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "GET")
 				testHeader(t, r, "Accept", mediaTypeSignaturePreview)
-				fmt.Fprintf(w, `{"url":"/repos/o/r/branches/b/protection/required_signatures","enabled":false}`)
+				fmt.Fprint(w, `{"url":"/repos/o/r/branches/b/protection/required_signatures","enabled":false}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			signature, _, err := client.Repositories.GetSignaturesProtectedBranch(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.GetSignaturesProtectedBranch returned error: %v", err)
 			}
 
 			want := &SignaturesProtectedBranch{
-				URL:     String("/repos/o/r/branches/b/protection/required_signatures"),
-				Enabled: Bool(false),
+				URL:     Ptr("/repos/o/r/branches/b/protection/required_signatures"),
+				Enabled: Ptr(false),
 			}
 
 			if !cmp.Equal(signature, want) {
@@ -3276,6 +3289,45 @@ func TestRepositoriesService_GetSignaturesProtectedBranch(t *testing.T) {
 	}
 }
 
+func TestRepositoriesService_GetSignaturesProtectedBranch_branchNotProtected(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		branch  string
+		urlPath string
+	}{
+		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_signatures"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_signatures"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.branch, func(t *testing.T) {
+			t.Parallel()
+			client, mux, _ := setup(t)
+
+			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
+				testMethod(t, r, "GET")
+
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{
+			"message": %q,
+			"documentation_url": "https://docs.github.com/rest/repos#get-branch-protection"
+			}`, githubBranchNotProtected)
+			})
+
+			ctx := t.Context()
+			checks, _, err := client.Repositories.GetSignaturesProtectedBranch(ctx, "o", "r", test.branch)
+
+			if checks != nil {
+				t.Error("Repositories.GetSignaturesProtectedBranch returned non-nil status-checks data")
+			}
+
+			if !errors.Is(err, ErrBranchNotProtected) {
+				t.Errorf("Repositories.GetSignaturesProtectedBranch returned an invalid error: %v", err)
+			}
+		})
+	}
+}
+
 func TestRepositoriesService_RequireSignaturesOnProtectedBranch(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -3283,11 +3335,10 @@ func TestRepositoriesService_RequireSignaturesOnProtectedBranch(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_signatures"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_signatures"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_signatures"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3295,18 +3346,18 @@ func TestRepositoriesService_RequireSignaturesOnProtectedBranch(t *testing.T) {
 			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "POST")
 				testHeader(t, r, "Accept", mediaTypeSignaturePreview)
-				fmt.Fprintf(w, `{"url":"/repos/o/r/branches/b/protection/required_signatures","enabled":true}`)
+				fmt.Fprint(w, `{"url":"/repos/o/r/branches/b/protection/required_signatures","enabled":true}`)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			signature, _, err := client.Repositories.RequireSignaturesOnProtectedBranch(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.RequireSignaturesOnProtectedBranch returned error: %v", err)
 			}
 
 			want := &SignaturesProtectedBranch{
-				URL:     String("/repos/o/r/branches/b/protection/required_signatures"),
-				Enabled: Bool(true),
+				URL:     Ptr("/repos/o/r/branches/b/protection/required_signatures"),
+				Enabled: Ptr(true),
 			}
 
 			if !cmp.Equal(signature, want) {
@@ -3337,11 +3388,10 @@ func TestRepositoriesService_OptionalSignaturesOnProtectedBranch(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/required_signatures"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/required_signatures"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/required_signatures"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3352,7 +3402,7 @@ func TestRepositoriesService_OptionalSignaturesOnProtectedBranch(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := client.Repositories.OptionalSignaturesOnProtectedBranch(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.OptionalSignaturesOnProtectedBranch returned error: %v", err)
@@ -3371,7 +3421,7 @@ func TestRepositoriesService_OptionalSignaturesOnProtectedBranch(t *testing.T) {
 	}
 }
 
-func TestPullRequestReviewsEnforcementRequest_MarshalJSON_nilDismissalRestirctions(t *testing.T) {
+func TestPullRequestReviewsEnforcementRequest_MarshalJSON_nilDismissalRestrictions(t *testing.T) {
 	t.Parallel()
 	req := PullRequestReviewsEnforcementRequest{}
 
@@ -3405,7 +3455,7 @@ func TestPullRequestReviewsEnforcementRequest_MarshalJSON_nilDismissalRestirctio
 			Teams: &[]string{},
 			Apps:  &[]string{},
 		},
-		RequireLastPushApproval: Bool(true),
+		RequireLastPushApproval: Ptr(true),
 	}
 
 	got, err = json.Marshal(req)
@@ -3426,11 +3476,16 @@ func TestRepositoriesService_ListAllTopics(t *testing.T) {
 	mux.HandleFunc("/repos/o/r/topics", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		testHeader(t, r, "Accept", mediaTypeTopicsPreview)
+		testFormValues(t, r, values{
+			"page":     "1",
+			"per_page": "30",
+		})
 		fmt.Fprint(w, `{"names":["go", "go-github", "github"]}`)
 	})
 
-	ctx := context.Background()
-	got, _, err := client.Repositories.ListAllTopics(ctx, "o", "r")
+	ctx := t.Context()
+	opts := &ListOptions{Page: 1, PerPage: 30}
+	got, _, err := client.Repositories.ListAllTopics(ctx, "o", "r", opts)
 	if err != nil {
 		t.Fatalf("Repositories.ListAllTopics returned error: %v", err)
 	}
@@ -3442,12 +3497,12 @@ func TestRepositoriesService_ListAllTopics(t *testing.T) {
 
 	const methodName = "ListAllTopics"
 	testBadOptions(t, methodName, func() (err error) {
-		_, _, err = client.Repositories.ListAllTopics(ctx, "\n", "\n")
+		_, _, err = client.Repositories.ListAllTopics(ctx, "\n", "\n", opts)
 		return err
 	})
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Repositories.ListAllTopics(ctx, "o", "r")
+		got, resp, err := client.Repositories.ListAllTopics(ctx, "o", "r", opts)
 		if got != nil {
 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
 		}
@@ -3465,8 +3520,8 @@ func TestRepositoriesService_ListAllTopics_emptyTopics(t *testing.T) {
 		fmt.Fprint(w, `{"names":[]}`)
 	})
 
-	ctx := context.Background()
-	got, _, err := client.Repositories.ListAllTopics(ctx, "o", "r")
+	ctx := t.Context()
+	got, _, err := client.Repositories.ListAllTopics(ctx, "o", "r", nil)
 	if err != nil {
 		t.Fatalf("Repositories.ListAllTopics returned error: %v", err)
 	}
@@ -3487,7 +3542,7 @@ func TestRepositoriesService_ReplaceAllTopics(t *testing.T) {
 		fmt.Fprint(w, `{"names":["go", "go-github", "github"]}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.ReplaceAllTopics(ctx, "o", "r", []string{"go", "go-github", "github"})
 	if err != nil {
 		t.Fatalf("Repositories.ReplaceAllTopics returned error: %v", err)
@@ -3524,7 +3579,7 @@ func TestRepositoriesService_ReplaceAllTopics_nilSlice(t *testing.T) {
 		fmt.Fprint(w, `{"names":[]}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.ReplaceAllTopics(ctx, "o", "r", nil)
 	if err != nil {
 		t.Fatalf("Repositories.ReplaceAllTopics returned error: %v", err)
@@ -3547,7 +3602,7 @@ func TestRepositoriesService_ReplaceAllTopics_emptySlice(t *testing.T) {
 		fmt.Fprint(w, `{"names":[]}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.ReplaceAllTopics(ctx, "o", "r", []string{})
 	if err != nil {
 		t.Fatalf("Repositories.ReplaceAllTopics returned error: %v", err)
@@ -3566,20 +3621,19 @@ func TestRepositoriesService_ListAppRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/apps"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/apps"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/apps"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
-			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc(test.urlPath, func(_ http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "GET")
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, _, err := client.Repositories.ListAppRestrictions(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.ListAppRestrictions returned error: %v", err)
@@ -3609,11 +3663,10 @@ func TestRepositoriesService_ReplaceAppRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/apps"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/apps"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/apps"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3625,13 +3678,13 @@ func TestRepositoriesService_ReplaceAppRestrictions(t *testing.T) {
 			}]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.ReplaceAppRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.ReplaceAppRestrictions returned error: %v", err)
 			}
 			want := []*App{
-				{Name: String("octocat")},
+				{Name: Ptr("octocat")},
 			}
 			if !cmp.Equal(got, want) {
 				t.Errorf("Repositories.ReplaceAppRestrictions returned %+v, want %+v", got, want)
@@ -3661,11 +3714,10 @@ func TestRepositoriesService_AddAppRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/apps"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/apps"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/apps"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3677,13 +3729,13 @@ func TestRepositoriesService_AddAppRestrictions(t *testing.T) {
 			}]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.AddAppRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.AddAppRestrictions returned error: %v", err)
 			}
 			want := []*App{
-				{Name: String("octocat")},
+				{Name: Ptr("octocat")},
 			}
 			if !cmp.Equal(got, want) {
 				t.Errorf("Repositories.AddAppRestrictions returned %+v, want %+v", got, want)
@@ -3713,11 +3765,10 @@ func TestRepositoriesService_RemoveAppRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/apps"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/apps"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/apps"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3727,7 +3778,7 @@ func TestRepositoriesService_RemoveAppRestrictions(t *testing.T) {
 				fmt.Fprint(w, `[]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.RemoveAppRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.RemoveAppRestrictions returned error: %v", err)
@@ -3761,20 +3812,19 @@ func TestRepositoriesService_ListTeamRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/teams"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/teams"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/teams"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
-			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc(test.urlPath, func(_ http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "GET")
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, _, err := client.Repositories.ListTeamRestrictions(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.ListTeamRestrictions returned error: %v", err)
@@ -3804,11 +3854,10 @@ func TestRepositoriesService_ReplaceTeamRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/teams"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/teams"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/teams"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3820,13 +3869,13 @@ func TestRepositoriesService_ReplaceTeamRestrictions(t *testing.T) {
 			}]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.ReplaceTeamRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.ReplaceTeamRestrictions returned error: %v", err)
 			}
 			want := []*Team{
-				{Name: String("octocat")},
+				{Name: Ptr("octocat")},
 			}
 			if !cmp.Equal(got, want) {
 				t.Errorf("Repositories.ReplaceTeamRestrictions returned %+v, want %+v", got, want)
@@ -3856,11 +3905,10 @@ func TestRepositoriesService_AddTeamRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/teams"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/teams"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/teams"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3872,13 +3920,13 @@ func TestRepositoriesService_AddTeamRestrictions(t *testing.T) {
 			}]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.AddTeamRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.AddTeamRestrictions returned error: %v", err)
 			}
 			want := []*Team{
-				{Name: String("octocat")},
+				{Name: Ptr("octocat")},
 			}
 			if !cmp.Equal(got, want) {
 				t.Errorf("Repositories.AddTeamRestrictions returned %+v, want %+v", got, want)
@@ -3908,11 +3956,10 @@ func TestRepositoriesService_RemoveTeamRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/teams"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/teams"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/teams"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -3922,7 +3969,7 @@ func TestRepositoriesService_RemoveTeamRestrictions(t *testing.T) {
 				fmt.Fprint(w, `[]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.RemoveTeamRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.RemoveTeamRestrictions returned error: %v", err)
@@ -3956,20 +4003,19 @@ func TestRepositoriesService_ListUserRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/users"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/users"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/users"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
-			mux.HandleFunc(test.urlPath, func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc(test.urlPath, func(_ http.ResponseWriter, r *http.Request) {
 				testMethod(t, r, "GET")
 			})
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, _, err := client.Repositories.ListUserRestrictions(ctx, "o", "r", test.branch)
 			if err != nil {
 				t.Errorf("Repositories.ListUserRestrictions returned error: %v", err)
@@ -3999,11 +4045,10 @@ func TestRepositoriesService_ReplaceUserRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/users"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/users"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/users"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -4015,13 +4060,13 @@ func TestRepositoriesService_ReplaceUserRestrictions(t *testing.T) {
 			}]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.ReplaceUserRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.ReplaceUserRestrictions returned error: %v", err)
 			}
 			want := []*User{
-				{Name: String("octocat")},
+				{Name: Ptr("octocat")},
 			}
 			if !cmp.Equal(got, want) {
 				t.Errorf("Repositories.ReplaceUserRestrictions returned %+v, want %+v", got, want)
@@ -4051,11 +4096,10 @@ func TestRepositoriesService_AddUserRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/users"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/users"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/users"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -4067,13 +4111,13 @@ func TestRepositoriesService_AddUserRestrictions(t *testing.T) {
 			}]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.AddUserRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.AddUserRestrictions returned error: %v", err)
 			}
 			want := []*User{
-				{Name: String("octocat")},
+				{Name: Ptr("octocat")},
 			}
 			if !cmp.Equal(got, want) {
 				t.Errorf("Repositories.AddUserRestrictions returned %+v, want %+v", got, want)
@@ -4103,11 +4147,10 @@ func TestRepositoriesService_RemoveUserRestrictions(t *testing.T) {
 		urlPath string
 	}{
 		{branch: "b", urlPath: "/repos/o/r/branches/b/protection/restrictions/users"},
-		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat/branch-50%/protection/restrictions/users"},
+		{branch: "feat/branch-50%", urlPath: "/repos/o/r/branches/feat%2fbranch-50%25/protection/restrictions/users"},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.branch, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -4117,7 +4160,7 @@ func TestRepositoriesService_RemoveUserRestrictions(t *testing.T) {
 				fmt.Fprint(w, `[]`)
 			})
 			input := []string{"octocat"}
-			ctx := context.Background()
+			ctx := t.Context()
 			got, _, err := client.Repositories.RemoveUserRestrictions(ctx, "o", "r", test.branch, input)
 			if err != nil {
 				t.Errorf("Repositories.RemoveUserRestrictions returned error: %v", err)
@@ -4148,7 +4191,7 @@ func TestRepositoriesService_Transfer(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	input := TransferRequest{NewOwner: "a", NewName: String("b"), TeamID: []int64{123}}
+	input := TransferRequest{NewOwner: "a", NewName: Ptr("b"), TeamID: []int64{123}}
 
 	mux.HandleFunc("/repos/o/r/transfer", func(w http.ResponseWriter, r *http.Request) {
 		var v TransferRequest
@@ -4162,13 +4205,13 @@ func TestRepositoriesService_Transfer(t *testing.T) {
 		fmt.Fprint(w, `{"owner":{"login":"a"}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.Transfer(ctx, "o", "r", input)
 	if err != nil {
 		t.Errorf("Repositories.Transfer returned error: %v", err)
 	}
 
-	want := &Repository{Owner: &User{Login: String("a")}}
+	want := &Repository{Owner: &User{Login: Ptr("a")}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.Transfer returned %+v, want %+v", got, want)
 	}
@@ -4206,9 +4249,9 @@ func TestRepositoriesService_Dispatch(t *testing.T) {
 		fmt.Fprint(w, `{"owner":{"login":"a"}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
-	testCases := []interface{}{
+	testCases := []any{
 		nil,
 		struct {
 			Foo string
@@ -4245,7 +4288,7 @@ func TestRepositoriesService_Dispatch(t *testing.T) {
 			t.Errorf("Repositories.Dispatch returned error: %v", err)
 		}
 
-		want := &Repository{Owner: &User{Login: String("a")}}
+		want := &Repository{Owner: &User{Login: Ptr("a")}}
 		if !cmp.Equal(got, want) {
 			t.Errorf("Repositories.Dispatch returned %+v, want %+v", got, want)
 		}
@@ -4271,7 +4314,7 @@ func TestAdvancedSecurity_Marshal(t *testing.T) {
 	testJSONMarshal(t, &AdvancedSecurity{}, "{}")
 
 	u := &AdvancedSecurity{
-		Status: String("status"),
+		Status: Ptr("status"),
 	}
 
 	want := `{
@@ -4286,7 +4329,7 @@ func TestAuthorizedActorsOnly_Marshal(t *testing.T) {
 	testJSONMarshal(t, &AuthorizedActorsOnly{}, "{}")
 
 	u := &AuthorizedActorsOnly{
-		From: Bool(true),
+		From: Ptr(true),
 	}
 
 	want := `{
@@ -4322,7 +4365,7 @@ func TestTransferRequest_Marshal(t *testing.T) {
 
 	u := &TransferRequest{
 		NewOwner: "testOwner",
-		NewName:  String("testName"),
+		NewName:  Ptr("testName"),
 		TeamID:   []int64{1, 2},
 	}
 
@@ -4340,20 +4383,20 @@ func TestSignaturesProtectedBranch_Marshal(t *testing.T) {
 	testJSONMarshal(t, &SignaturesProtectedBranch{}, "{}")
 
 	u := &SignaturesProtectedBranch{
-		URL:     String("https://www.testURL.in"),
-		Enabled: Bool(false),
+		URL:     Ptr("https://www.example.com"),
+		Enabled: Ptr(false),
 	}
 
 	want := `{
-		"url": "https://www.testURL.in",
+		"url": "https://www.example.com",
 		"enabled": false
 	}`
 
 	testJSONMarshal(t, u, want)
 
 	u2 := &SignaturesProtectedBranch{
-		URL:     String("testURL"),
-		Enabled: Bool(true),
+		URL:     Ptr("testURL"),
+		Enabled: Ptr(true),
 	}
 
 	want2 := `{
@@ -4388,12 +4431,12 @@ func TestAdminEnforcement_Marshal(t *testing.T) {
 	testJSONMarshal(t, &AdminEnforcement{}, "{}")
 
 	u := &AdminEnforcement{
-		URL:     String("https://www.test-url.in"),
+		URL:     Ptr("https://www.example.com"),
 		Enabled: false,
 	}
 
 	want := `{
-		"url": "https://www.test-url.in",
+		"url": "https://www.example.com",
 		"enabled": false
 	}`
 
@@ -4410,8 +4453,8 @@ func TestPullRequestReviewsEnforcementUpdate_Marshal(t *testing.T) {
 			Teams: []string{"team1", "team2"},
 			Apps:  []string{"app1", "app2"},
 		},
-		DismissStaleReviews:          Bool(false),
-		RequireCodeOwnerReviews:      Bool(true),
+		DismissStaleReviews:          Ptr(false),
+		RequireCodeOwnerReviews:      Ptr(true),
 		RequiredApprovingReviewCount: 2,
 	}
 
@@ -4435,7 +4478,7 @@ func TestRequiredStatusCheck_Marshal(t *testing.T) {
 
 	u := &RequiredStatusCheck{
 		Context: "ctx",
-		AppID:   Int64(1),
+		AppID:   Ptr(int64(1)),
 	}
 
 	want := `{
@@ -4451,13 +4494,13 @@ func TestRepositoryTag_Marshal(t *testing.T) {
 	testJSONMarshal(t, &RepositoryTag{}, "{}")
 
 	u := &RepositoryTag{
-		Name: String("v0.1"),
+		Name: Ptr("v0.1"),
 		Commit: &Commit{
-			SHA: String("sha"),
-			URL: String("url"),
+			SHA: Ptr("sha"),
+			URL: Ptr("url"),
 		},
-		ZipballURL: String("zball"),
-		TarballURL: String("tball"),
+		ZipballURL: Ptr("zball"),
+		TarballURL: Ptr("tball"),
 	}
 
 	want := `{
@@ -4482,7 +4525,7 @@ func TestRepositoriesService_EnablePrivateReporting(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Repositories.EnablePrivateReporting(ctx, "owner", "repo")
 	if err != nil {
 		t.Errorf("Repositories.EnablePrivateReporting returned error: %v", err)
@@ -4508,7 +4551,7 @@ func TestRepositoriesService_DisablePrivateReporting(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Repositories.DisablePrivateReporting(ctx, "owner", "repo")
 	if err != nil {
 		t.Errorf("Repositories.DisablePrivateReporting returned error: %v", err)
@@ -4534,7 +4577,7 @@ func TestRepositoriesService_IsPrivateReportingEnabled(t *testing.T) {
 		fmt.Fprint(w, `{"enabled": true}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	enabled, _, err := client.Repositories.IsPrivateReportingEnabled(ctx, "owner", "repo")
 	if err != nil {
 		t.Errorf("Repositories.IsPrivateReportingEnabled returned error: %v", err)
@@ -4560,7 +4603,7 @@ func TestRepositoriesService_IsPrivateReportingEnabled(t *testing.T) {
 
 func TestRepository_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
-	var testCases = map[string]struct {
+	testCases := map[string]struct {
 		data           []byte
 		wantRepository Repository
 		wantErr        bool
@@ -4577,24 +4620,23 @@ func TestRepository_UnmarshalJSON(t *testing.T) {
 		},
 		"Partial project": {
 			data:           []byte(`{"id":10270722,"name":"go-github","private":false,"owner":{"login":"google"},"created_at":"2013-05-24T16:42:58Z","license":{},"topics":["github"],"permissions":{"pull":true},"custom_properties":{},"organization":{"login":"google"}}`),
-			wantRepository: Repository{ID: Int64(10270722), Name: String("go-github"), Private: Bool(false), Owner: &User{Login: String("google")}, CreatedAt: &Timestamp{time.Date(2013, 5, 24, 16, 42, 58, 0, time.UTC)}, License: &License{}, Topics: []string{"github"}, Permissions: map[string]bool{"pull": true}, CustomProperties: map[string]interface{}{}, Organization: &Organization{Login: String("google")}},
+			wantRepository: Repository{ID: Ptr(int64(10270722)), Name: Ptr("go-github"), Private: Ptr(false), Owner: &User{Login: Ptr("google")}, CreatedAt: &Timestamp{time.Date(2013, 5, 24, 16, 42, 58, 0, time.UTC)}, License: &License{}, Topics: []string{"github"}, Permissions: &RepositoryPermissions{Pull: Ptr(true)}, CustomProperties: map[string]any{}, Organization: &Organization{Login: Ptr("google")}},
 			wantErr:        false,
 		},
 		"With custom properties": {
 			data:           []byte(`{"custom_properties":{"boolean":"false","text":"a","single-select":"a","multi-select":["a","b","c"]}}`),
-			wantRepository: Repository{CustomProperties: map[string]interface{}{"boolean": "false", "text": "a", "single-select": "a", "multi-select": []interface{}{"a", "b", "c"}}},
+			wantRepository: Repository{CustomProperties: map[string]any{"boolean": "false", "text": "a", "single-select": "a", "multi-select": []any{"a", "b", "c"}}},
 			wantErr:        false,
 		},
 	}
 
 	for name, tt := range testCases {
-		tt := tt
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			pk := Repository{}
 			err := json.Unmarshal(tt.data, &pk)
 			if err == nil && tt.wantErr {
-				t.Errorf("Repository.UnmarshalJSON returned nil instead of an error")
+				t.Error("Repository.UnmarshalJSON returned nil instead of an error")
 			}
 			if err != nil && !tt.wantErr {
 				t.Errorf("Repository.UnmarshalJSON returned an unexpected error: %+v", err)
@@ -4603,5 +4645,314 @@ func TestRepository_UnmarshalJSON(t *testing.T) {
 				t.Errorf("Repository.UnmarshalJSON expected repository %+v, got %+v", tt.wantRepository, pk)
 			}
 		})
+	}
+}
+
+func TestRepositoriesService_ListRepositoryActivities(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/repos/o/r/activity", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		testFormValues(t, r, values{
+			"per_page": "100",
+		})
+		fmt.Fprint(w, `[
+			{
+				"id": 123456789,
+				"node_id": "PSH_test123",
+				"before": "abc123def456",
+				"after": "def456ghi789",
+				"ref": "refs/heads/main",
+				"timestamp": "2023-01-01T12:00:00Z",
+				"activity_type": "push",
+				"actor": {
+					"login": "testuser1",
+					"id": 111111,
+					"node_id": "MDQ6VXNlcjExMTExMQ==",
+					"avatar_url": "https://avatars.githubusercontent.com/u/111111?v=4",
+					"gravatar_id": "",
+					"url": "https://api.github.com/users/testuser1",
+					"html_url": "https://github.com/testuser1",
+					"followers_url": "https://api.github.com/users/testuser1/followers",
+					"following_url": "https://api.github.com/users/testuser1/following{/other_user}",
+					"gists_url": "https://api.github.com/users/testuser1/gists{/gist_id}",
+					"starred_url": "https://api.github.com/users/testuser1/starred{/owner}{/repo}",
+					"subscriptions_url": "https://api.github.com/users/testuser1/subscriptions",
+					"organizations_url": "https://api.github.com/users/testuser1/orgs",
+					"repos_url": "https://api.github.com/users/testuser1/repos",
+					"events_url": "https://api.github.com/users/testuser1/events{/privacy}",
+					"received_events_url": "https://api.github.com/users/testuser1/received_events",
+					"type": "User",
+					"user_view_type": "public",
+					"site_admin": false
+				}
+			},
+			{
+				"id": 123456788,
+				"node_id": "PSH_test124",
+				"before": "def456ghi789",
+				"after": "ghi789jkl012",
+				"ref": "refs/heads/feature",
+				"timestamp": "2023-01-01T11:30:00Z",
+				"activity_type": "branch_deletion",
+				"actor": {
+					"login": "testuser2",
+					"id": 222222,
+					"node_id": "MDQ6VXNlcjIyMjIyMg==",
+					"avatar_url": "https://avatars.githubusercontent.com/u/222222?v=4",
+					"gravatar_id": "",
+					"url": "https://api.github.com/users/testuser2",
+					"html_url": "https://github.com/testuser2",
+					"followers_url": "https://api.github.com/users/testuser2/followers",
+					"following_url": "https://api.github.com/users/testuser2/following{/other_user}",
+					"gists_url": "https://api.github.com/users/testuser2/gists{/gist_id}",
+					"starred_url": "https://api.github.com/users/testuser2/starred{/owner}{/repo}",
+					"subscriptions_url": "https://api.github.com/users/testuser2/subscriptions",
+					"organizations_url": "https://api.github.com/users/testuser2/orgs",
+					"repos_url": "https://api.github.com/users/testuser2/repos",
+					"events_url": "https://api.github.com/users/testuser2/events{/privacy}",
+					"received_events_url": "https://api.github.com/users/testuser2/received_events",
+					"type": "User",
+					"user_view_type": "public",
+					"site_admin": false
+				}
+			}
+		]`)
+	})
+
+	opts := &ListRepositoryActivityOptions{PerPage: 100}
+	ctx := t.Context()
+	activities, _, err := client.Repositories.ListRepositoryActivities(ctx, "o", "r", opts)
+	if err != nil {
+		t.Errorf("Repositories.ListRepositoryActivities returned error: %v", err)
+	}
+
+	want := []*RepositoryActivity{
+		{
+			ID:           123456789,
+			NodeID:       "PSH_test123",
+			Before:       "abc123def456",
+			After:        "def456ghi789",
+			Ref:          "refs/heads/main",
+			Timestamp:    &Timestamp{Time: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)},
+			ActivityType: "push",
+			Actor: &RepositoryActor{
+				Login:             Ptr("testuser1"),
+				ID:                Ptr(int64(111111)),
+				NodeID:            Ptr("MDQ6VXNlcjExMTExMQ=="),
+				AvatarURL:         Ptr("https://avatars.githubusercontent.com/u/111111?v=4"),
+				GravatarID:        Ptr(""),
+				URL:               Ptr("https://api.github.com/users/testuser1"),
+				HTMLURL:           Ptr("https://github.com/testuser1"),
+				FollowersURL:      Ptr("https://api.github.com/users/testuser1/followers"),
+				FollowingURL:      Ptr("https://api.github.com/users/testuser1/following{/other_user}"),
+				GistsURL:          Ptr("https://api.github.com/users/testuser1/gists{/gist_id}"),
+				StarredURL:        Ptr("https://api.github.com/users/testuser1/starred{/owner}{/repo}"),
+				SubscriptionsURL:  Ptr("https://api.github.com/users/testuser1/subscriptions"),
+				OrganizationsURL:  Ptr("https://api.github.com/users/testuser1/orgs"),
+				ReposURL:          Ptr("https://api.github.com/users/testuser1/repos"),
+				EventsURL:         Ptr("https://api.github.com/users/testuser1/events{/privacy}"),
+				ReceivedEventsURL: Ptr("https://api.github.com/users/testuser1/received_events"),
+				Type:              Ptr("User"),
+				UserViewType:      Ptr("public"),
+				SiteAdmin:         Ptr(false),
+			},
+		},
+		{
+			ID:           123456788,
+			NodeID:       "PSH_test124",
+			Before:       "def456ghi789",
+			After:        "ghi789jkl012",
+			Ref:          "refs/heads/feature",
+			Timestamp:    &Timestamp{Time: time.Date(2023, 1, 1, 11, 30, 0, 0, time.UTC)},
+			ActivityType: "branch_deletion",
+			Actor: &RepositoryActor{
+				Login:             Ptr("testuser2"),
+				ID:                Ptr(int64(222222)),
+				NodeID:            Ptr("MDQ6VXNlcjIyMjIyMg=="),
+				AvatarURL:         Ptr("https://avatars.githubusercontent.com/u/222222?v=4"),
+				GravatarID:        Ptr(""),
+				URL:               Ptr("https://api.github.com/users/testuser2"),
+				HTMLURL:           Ptr("https://github.com/testuser2"),
+				FollowersURL:      Ptr("https://api.github.com/users/testuser2/followers"),
+				FollowingURL:      Ptr("https://api.github.com/users/testuser2/following{/other_user}"),
+				GistsURL:          Ptr("https://api.github.com/users/testuser2/gists{/gist_id}"),
+				StarredURL:        Ptr("https://api.github.com/users/testuser2/starred{/owner}{/repo}"),
+				SubscriptionsURL:  Ptr("https://api.github.com/users/testuser2/subscriptions"),
+				OrganizationsURL:  Ptr("https://api.github.com/users/testuser2/orgs"),
+				ReposURL:          Ptr("https://api.github.com/users/testuser2/repos"),
+				EventsURL:         Ptr("https://api.github.com/users/testuser2/events{/privacy}"),
+				ReceivedEventsURL: Ptr("https://api.github.com/users/testuser2/received_events"),
+				Type:              Ptr("User"),
+				UserViewType:      Ptr("public"),
+				SiteAdmin:         Ptr(false),
+			},
+		},
+	}
+
+	if !cmp.Equal(activities, want) {
+		t.Errorf("Repositories.ListRepositoryActivities returned %+v, want %+v", activities, want)
+	}
+
+	const methodName = "ListRepositoryActivities"
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Repositories.ListRepositoryActivities(ctx, "\n", "\n", opts)
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Repositories.ListRepositoryActivities(ctx, "o", "r", opts)
+		if got != nil {
+			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
+		}
+		return resp, err
+	})
+}
+
+func TestRepositoriesService_ListRepositoryActivities_withOptions(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/repos/o/r/activity", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		testFormValues(t, r, values{
+			"direction":     "desc",
+			"before":        "2023-01-01T12:00:00Z",
+			"after":         "2023-01-01T11:30:00Z",
+			"ref":           "refs/heads/main",
+			"actor":         "testuser1",
+			"time_period":   "day",
+			"activity_type": "push",
+			"per_page":      "50",
+		})
+		fmt.Fprint(w, `[
+			{
+				"id": 123456789,
+				"node_id": "PSH_test123",
+				"before": "abc123def456",
+				"after": "def456ghi789",
+				"ref": "refs/heads/main",
+				"timestamp": "2023-01-01T12:00:00Z",
+				"activity_type": "push",
+				"actor": {
+					"login": "testuser1",
+					"id": 111111,
+					"node_id": "MDQ6VXNlcjExMTExMQ==",
+					"avatar_url": "https://avatars.githubusercontent.com/u/111111?v=4",
+					"gravatar_id": "",
+					"url": "https://api.github.com/users/testuser1",
+					"html_url": "https://github.com/testuser1",
+					"followers_url": "https://api.github.com/users/testuser1/followers",
+					"following_url": "https://api.github.com/users/testuser1/following{/other_user}",
+					"gists_url": "https://api.github.com/users/testuser1/gists{/gist_id}",
+					"starred_url": "https://api.github.com/users/testuser1/starred{/owner}{/repo}",
+					"subscriptions_url": "https://api.github.com/users/testuser1/subscriptions",
+					"organizations_url": "https://api.github.com/users/testuser1/orgs",
+					"repos_url": "https://api.github.com/users/testuser1/repos",
+					"events_url": "https://api.github.com/users/testuser1/events{/privacy}",
+					"received_events_url": "https://api.github.com/users/testuser1/received_events",
+					"type": "User",
+					"user_view_type": "public",
+					"site_admin": false
+				}
+			}
+		]`)
+	})
+
+	opts := &ListRepositoryActivityOptions{
+		Direction:    "desc",
+		Before:       "2023-01-01T12:00:00Z",
+		After:        "2023-01-01T11:30:00Z",
+		Ref:          "refs/heads/main",
+		Actor:        "testuser1",
+		TimePeriod:   "day",
+		ActivityType: "push",
+		PerPage:      50,
+	}
+	ctx := t.Context()
+	activities, _, err := client.Repositories.ListRepositoryActivities(ctx, "o", "r", opts)
+	if err != nil {
+		t.Errorf("Repositories.ListRepositoryActivities returned error: %v", err)
+	}
+
+	want := []*RepositoryActivity{
+		{
+			ID:           123456789,
+			NodeID:       "PSH_test123",
+			Before:       "abc123def456",
+			After:        "def456ghi789",
+			Ref:          "refs/heads/main",
+			Timestamp:    &Timestamp{Time: time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)},
+			ActivityType: "push",
+			Actor: &RepositoryActor{
+				Login:             Ptr("testuser1"),
+				ID:                Ptr(int64(111111)),
+				NodeID:            Ptr("MDQ6VXNlcjExMTExMQ=="),
+				AvatarURL:         Ptr("https://avatars.githubusercontent.com/u/111111?v=4"),
+				GravatarID:        Ptr(""),
+				URL:               Ptr("https://api.github.com/users/testuser1"),
+				HTMLURL:           Ptr("https://github.com/testuser1"),
+				FollowersURL:      Ptr("https://api.github.com/users/testuser1/followers"),
+				FollowingURL:      Ptr("https://api.github.com/users/testuser1/following{/other_user}"),
+				GistsURL:          Ptr("https://api.github.com/users/testuser1/gists{/gist_id}"),
+				StarredURL:        Ptr("https://api.github.com/users/testuser1/starred{/owner}{/repo}"),
+				SubscriptionsURL:  Ptr("https://api.github.com/users/testuser1/subscriptions"),
+				OrganizationsURL:  Ptr("https://api.github.com/users/testuser1/orgs"),
+				ReposURL:          Ptr("https://api.github.com/users/testuser1/repos"),
+				EventsURL:         Ptr("https://api.github.com/users/testuser1/events{/privacy}"),
+				ReceivedEventsURL: Ptr("https://api.github.com/users/testuser1/received_events"),
+				Type:              Ptr("User"),
+				UserViewType:      Ptr("public"),
+				SiteAdmin:         Ptr(false),
+			},
+		},
+	}
+
+	if !cmp.Equal(activities, want) {
+		t.Errorf("Repositories.ListRepositoryActivities returned %+v, want %+v", activities, want)
+	}
+}
+
+func TestRepositoriesService_ListRepositoryActivities_emptyResponse(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/repos/o/r/activity", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		fmt.Fprint(w, `[]`)
+	})
+
+	ctx := t.Context()
+	activities, _, err := client.Repositories.ListRepositoryActivities(ctx, "o", "r", nil)
+	if err != nil {
+		t.Errorf("Repositories.ListRepositoryActivities returned error: %v", err)
+	}
+
+	want := []*RepositoryActivity{}
+	if !cmp.Equal(activities, want) {
+		t.Errorf("Repositories.ListRepositoryActivities returned %+v, want %+v", activities, want)
+	}
+}
+
+func TestRepositoriesService_ListRepositoryActivities_invalidOwner(t *testing.T) {
+	t.Parallel()
+	client, _, _ := setup(t)
+
+	ctx := t.Context()
+	_, _, err := client.Repositories.ListRepositoryActivities(ctx, "%", "r", nil)
+	if err == nil {
+		t.Error("Expected error to be returned")
+	}
+}
+
+func TestRepositoriesService_ListRepositoryActivities_invalidRepo(t *testing.T) {
+	t.Parallel()
+	client, _, _ := setup(t)
+
+	ctx := t.Context()
+	_, _, err := client.Repositories.ListRepositoryActivities(ctx, "o", "%", nil)
+	if err == nil {
+		t.Error("Expected error to be returned")
 	}
 }

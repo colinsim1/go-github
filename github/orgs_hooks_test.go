@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -27,13 +26,13 @@ func TestOrganizationsService_ListHooks(t *testing.T) {
 
 	opt := &ListOptions{Page: 2}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	hooks, _, err := client.Organizations.ListHooks(ctx, "o", opt)
 	if err != nil {
 		t.Errorf("Organizations.ListHooks returned error: %v", err)
 	}
 
-	want := []*Hook{{ID: Int64(1)}, {ID: Int64(2)}}
+	want := []*Hook{{ID: Ptr(int64(1))}, {ID: Ptr(int64(2))}}
 	if !cmp.Equal(hooks, want) {
 		t.Errorf("Organizations.ListHooks returned %+v, want %+v", hooks, want)
 	}
@@ -57,7 +56,7 @@ func TestOrganizationsService_ListHooks_invalidOrg(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Organizations.ListHooks(ctx, "%", nil)
 	testURLParseError(t, err)
 }
@@ -81,18 +80,22 @@ func TestOrganizationsService_CreateHook(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	hook, _, err := client.Organizations.CreateHook(ctx, "o", input)
 	if err != nil {
 		t.Errorf("Organizations.CreateHook returned error: %v", err)
 	}
 
-	want := &Hook{ID: Int64(1)}
+	want := &Hook{ID: Ptr(int64(1))}
 	if !cmp.Equal(hook, want) {
 		t.Errorf("Organizations.CreateHook returned %+v, want %+v", hook, want)
 	}
 
 	const methodName = "CreateHook"
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Organizations.CreateHook(ctx, "o", nil)
+		return err
+	})
 	testBadOptions(t, methodName, func() (err error) {
 		_, _, err = client.Organizations.CreateHook(ctx, "\n", input)
 		return err
@@ -116,13 +119,13 @@ func TestOrganizationsService_GetHook(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	hook, _, err := client.Organizations.GetHook(ctx, "o", 1)
 	if err != nil {
 		t.Errorf("Organizations.GetHook returned error: %v", err)
 	}
 
-	want := &Hook{ID: Int64(1)}
+	want := &Hook{ID: Ptr(int64(1))}
 	if !cmp.Equal(hook, want) {
 		t.Errorf("Organizations.GetHook returned %+v, want %+v", hook, want)
 	}
@@ -146,7 +149,7 @@ func TestOrganizationsService_GetHook_invalidOrg(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Organizations.GetHook(ctx, "%", 1)
 	testURLParseError(t, err)
 }
@@ -169,13 +172,13 @@ func TestOrganizationsService_EditHook(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	hook, _, err := client.Organizations.EditHook(ctx, "o", 1, input)
 	if err != nil {
 		t.Errorf("Organizations.EditHook returned error: %v", err)
 	}
 
-	want := &Hook{ID: Int64(1)}
+	want := &Hook{ID: Ptr(int64(1))}
 	if !cmp.Equal(hook, want) {
 		t.Errorf("Organizations.EditHook returned %+v, want %+v", hook, want)
 	}
@@ -199,7 +202,7 @@ func TestOrganizationsService_EditHook_invalidOrg(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Organizations.EditHook(ctx, "%", 1, nil)
 	testURLParseError(t, err)
 }
@@ -208,11 +211,11 @@ func TestOrganizationsService_PingHook(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/orgs/o/hooks/1/pings", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/orgs/o/hooks/1/pings", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "POST")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.PingHook(ctx, "o", 1)
 	if err != nil {
 		t.Errorf("Organizations.PingHook returned error: %v", err)
@@ -233,11 +236,11 @@ func TestOrganizationsService_DeleteHook(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/orgs/o/hooks/1", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/orgs/o/hooks/1", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.DeleteHook(ctx, "o", 1)
 	if err != nil {
 		t.Errorf("Organizations.DeleteHook returned error: %v", err)
@@ -258,7 +261,7 @@ func TestOrganizationsService_DeleteHook_invalidOrg(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.DeleteHook(ctx, "%", 1)
 	testURLParseError(t, err)
 }

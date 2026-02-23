@@ -8,6 +8,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -38,7 +39,6 @@ func (s *RepositoriesService) ListForks(ctx context.Context, owner, repo string,
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when topics API fully launches.
 	req.Header.Set("Accept", mediaTypeTopicsPreview)
 
 	var repos []*Repository
@@ -83,7 +83,8 @@ func (s *RepositoriesService) CreateFork(ctx context.Context, owner, repo string
 	resp, err := s.client.Do(ctx, req, fork)
 	if err != nil {
 		// Persist AcceptedError's metadata to the Repository object.
-		if aerr, ok := err.(*AcceptedError); ok {
+		var aerr *AcceptedError
+		if errors.As(err, &aerr) {
 			if err := json.Unmarshal(aerr.Raw, fork); err != nil {
 				return fork, resp, err
 			}

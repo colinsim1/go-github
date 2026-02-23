@@ -8,61 +8,60 @@
 package integration
 
 import (
-	"context"
 	"testing"
 	"time"
 )
 
 func TestEmojis(t *testing.T) {
-	emoji, _, err := client.Emojis.List(context.Background())
+	emoji, _, err := client.Emojis.List(t.Context())
 	if err != nil {
 		t.Fatalf("List returned error: %v", err)
 	}
 
 	if len(emoji) == 0 {
-		t.Errorf("List returned no emojis")
+		t.Error("List returned no emojis")
 	}
 
 	if _, ok := emoji["+1"]; !ok {
-		t.Errorf("List missing '+1' emoji")
+		t.Error("List missing '+1' emoji")
 	}
 }
 
 func TestAPIMeta(t *testing.T) {
-	meta, _, err := client.Meta.Get(context.Background())
+	meta, _, err := client.Meta.Get(t.Context())
 	if err != nil {
 		t.Fatalf("Get returned error: %v", err)
 	}
 
 	if len(meta.Hooks) == 0 {
-		t.Errorf("Get returned no hook addresses")
+		t.Error("Get returned no hook addresses")
 	}
 
 	if len(meta.Git) == 0 {
-		t.Errorf("Get returned no git addresses")
+		t.Error("Get returned no git addresses")
 	}
 
-	if !*meta.VerifiablePasswordAuthentication {
-		t.Errorf("APIMeta VerifiablePasswordAuthentication is false")
+	if *meta.VerifiablePasswordAuthentication {
+		t.Error("APIMeta VerifiablePasswordAuthentication is true")
 	}
 }
 
 func TestRateLimits(t *testing.T) {
-	limits, _, err := client.RateLimit.Get(context.Background())
+	limits, _, err := client.RateLimit.Get(t.Context())
 	if err != nil {
 		t.Fatalf("RateLimits returned error: %v", err)
 	}
 
 	// do some sanity checks
 	if limits.Core.Limit == 0 {
-		t.Errorf("RateLimits returned 0 core limit")
+		t.Error("RateLimits returned 0 core limit")
 	}
 
 	if limits.Core.Limit < limits.Core.Remaining {
-		t.Errorf("Core.Limits is less than Core.Remaining.")
+		t.Error("Core.Limits is less than Core.Remaining.")
 	}
 
 	if limits.Core.Reset.Time.Before(time.Now().Add(-1 * time.Minute)) {
-		t.Errorf("Core.Reset is more than 1 minute in the past; that doesn't seem right.")
+		t.Error("Core.Reset is more than 1 minute in the past; that doesn't seem right.")
 	}
 }

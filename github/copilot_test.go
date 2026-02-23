@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -57,6 +56,16 @@ func TestCopilotSeatDetails_UnmarshalJSON(t *testing.T) {
 				}`,
 			want:    &CopilotSeatDetails{},
 			wantErr: true,
+		},
+		{
+			name: "Null Assignee",
+			data: `{
+					"assignee": null
+				}`,
+			want: &CopilotSeatDetails{
+				Assignee: nil,
+			},
+			wantErr: false,
 		},
 		{
 			name: "Invalid Assignee Field Type",
@@ -114,14 +123,13 @@ func TestCopilotSeatDetails_UnmarshalJSON(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		seatDetails := &CopilotSeatDetails{}
 
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			err := json.Unmarshal([]byte(tc.data), seatDetails)
 			if err == nil && tc.wantErr {
-				t.Errorf("CopilotSeatDetails.UnmarshalJSON returned nil instead of an error")
+				t.Error("CopilotSeatDetails.UnmarshalJSON returned nil instead of an error")
 			}
 			if err != nil && !tc.wantErr {
 				t.Errorf("CopilotSeatDetails.UnmarshalJSON returned an unexpected error: %v", err)
@@ -150,14 +158,14 @@ func TestCopilotService_GetSeatDetailsUser(t *testing.T) {
 	}
 
 	want := &User{
-		ID:   Int64(1),
-		Type: String("User"),
+		ID:   Ptr(int64(1)),
+		Type: Ptr("User"),
 	}
 
 	if got, ok := seatDetails.GetUser(); ok && !cmp.Equal(got, want) {
 		t.Errorf("CopilotSeatDetails.GetTeam returned %+v, want %+v", got, want)
 	} else if !ok {
-		t.Errorf("CopilotSeatDetails.GetUser returned false, expected true")
+		t.Error("CopilotSeatDetails.GetUser returned false, expected true")
 	}
 
 	data = `{
@@ -168,8 +176,8 @@ func TestCopilotService_GetSeatDetailsUser(t *testing.T) {
 			}`
 
 	bad := &Organization{
-		ID:   Int64(1),
-		Type: String("Organization"),
+		ID:   Ptr(int64(1)),
+		Type: Ptr("Organization"),
 	}
 
 	err = json.Unmarshal([]byte(data), seatDetails)
@@ -199,13 +207,13 @@ func TestCopilotService_GetSeatDetailsTeam(t *testing.T) {
 	}
 
 	want := &Team{
-		ID: Int64(1),
+		ID: Ptr(int64(1)),
 	}
 
 	if got, ok := seatDetails.GetTeam(); ok && !cmp.Equal(got, want) {
 		t.Errorf("CopilotSeatDetails.GetTeam returned %+v, want %+v", got, want)
 	} else if !ok {
-		t.Errorf("CopilotSeatDetails.GetTeam returned false, expected true")
+		t.Error("CopilotSeatDetails.GetTeam returned false, expected true")
 	}
 
 	data = `{
@@ -216,8 +224,8 @@ func TestCopilotService_GetSeatDetailsTeam(t *testing.T) {
 			}`
 
 	bad := &User{
-		ID:   Int64(1),
-		Type: String("User"),
+		ID:   Ptr(int64(1)),
+		Type: Ptr("User"),
 	}
 
 	err = json.Unmarshal([]byte(data), seatDetails)
@@ -247,14 +255,14 @@ func TestCopilotService_GetSeatDetailsOrganization(t *testing.T) {
 	}
 
 	want := &Organization{
-		ID:   Int64(1),
-		Type: String("Organization"),
+		ID:   Ptr(int64(1)),
+		Type: Ptr("Organization"),
 	}
 
 	if got, ok := seatDetails.GetOrganization(); ok && !cmp.Equal(got, want) {
 		t.Errorf("CopilotSeatDetails.GetOrganization returned %+v, want %+v", got, want)
 	} else if !ok {
-		t.Errorf("CopilotSeatDetails.GetOrganization returned false, expected true")
+		t.Error("CopilotSeatDetails.GetOrganization returned false, expected true")
 	}
 
 	data = `{
@@ -265,7 +273,7 @@ func TestCopilotService_GetSeatDetailsOrganization(t *testing.T) {
 			}`
 
 	bad := &Team{
-		ID: Int64(1),
+		ID: Ptr(int64(1)),
 	}
 
 	err = json.Unmarshal([]byte(data), seatDetails)
@@ -298,7 +306,7 @@ func TestCopilotService_GetCopilotBilling(t *testing.T) {
 			}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.GetCopilotBilling(ctx, "o")
 	if err != nil {
 		t.Errorf("Copilot.GetCopilotBilling returned error: %v", err)
@@ -483,7 +491,7 @@ func TestCopilotService_ListCopilotSeats(t *testing.T) {
 	}
 	lastActivityAt2 := Timestamp{tmp}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	opts := &ListOptions{Page: 1, PerPage: 100}
 	got, _, err := client.Copilot.ListCopilotSeats(ctx, "o", opts)
 	if err != nil {
@@ -495,97 +503,98 @@ func TestCopilotService_ListCopilotSeats(t *testing.T) {
 		Seats: []*CopilotSeatDetails{
 			{
 				Assignee: &User{
-					Login:             String("octocat"),
-					ID:                Int64(1),
-					NodeID:            String("MDQ6VXNlcjE="),
-					AvatarURL:         String("https://github.com/images/error/octocat_happy.gif"),
-					GravatarID:        String(""),
-					URL:               String("https://api.github.com/users/octocat"),
-					HTMLURL:           String("https://github.com/octocat"),
-					FollowersURL:      String("https://api.github.com/users/octocat/followers"),
-					FollowingURL:      String("https://api.github.com/users/octocat/following{/other_user}"),
-					GistsURL:          String("https://api.github.com/users/octocat/gists{/gist_id}"),
-					StarredURL:        String("https://api.github.com/users/octocat/starred{/owner}{/repo}"),
-					SubscriptionsURL:  String("https://api.github.com/users/octocat/subscriptions"),
-					OrganizationsURL:  String("https://api.github.com/users/octocat/orgs"),
-					ReposURL:          String("https://api.github.com/users/octocat/repos"),
-					EventsURL:         String("https://api.github.com/users/octocat/events{/privacy}"),
-					ReceivedEventsURL: String("https://api.github.com/users/octocat/received_events"),
-					Type:              String("User"),
-					SiteAdmin:         Bool(false),
+					Login:             Ptr("octocat"),
+					ID:                Ptr(int64(1)),
+					NodeID:            Ptr("MDQ6VXNlcjE="),
+					AvatarURL:         Ptr("https://github.com/images/error/octocat_happy.gif"),
+					GravatarID:        Ptr(""),
+					URL:               Ptr("https://api.github.com/users/octocat"),
+					HTMLURL:           Ptr("https://github.com/octocat"),
+					FollowersURL:      Ptr("https://api.github.com/users/octocat/followers"),
+					FollowingURL:      Ptr("https://api.github.com/users/octocat/following{/other_user}"),
+					GistsURL:          Ptr("https://api.github.com/users/octocat/gists{/gist_id}"),
+					StarredURL:        Ptr("https://api.github.com/users/octocat/starred{/owner}{/repo}"),
+					SubscriptionsURL:  Ptr("https://api.github.com/users/octocat/subscriptions"),
+					OrganizationsURL:  Ptr("https://api.github.com/users/octocat/orgs"),
+					ReposURL:          Ptr("https://api.github.com/users/octocat/repos"),
+					EventsURL:         Ptr("https://api.github.com/users/octocat/events{/privacy}"),
+					ReceivedEventsURL: Ptr("https://api.github.com/users/octocat/received_events"),
+					Type:              Ptr("User"),
+					SiteAdmin:         Ptr(false),
 				},
 				AssigningTeam: &Team{
-					ID:              Int64(1),
-					NodeID:          String("MDQ6VGVhbTE="),
-					URL:             String("https://api.github.com/teams/1"),
-					HTMLURL:         String("https://github.com/orgs/github/teams/justice-league"),
-					Name:            String("Justice League"),
-					Slug:            String("justice-league"),
-					Description:     String("A great team."),
-					Privacy:         String("closed"),
-					Permission:      String("admin"),
-					MembersURL:      String("https://api.github.com/teams/1/members{/member}"),
-					RepositoriesURL: String("https://api.github.com/teams/1/repos"),
-					Parent:          nil,
+					ID:                  Ptr(int64(1)),
+					NodeID:              Ptr("MDQ6VGVhbTE="),
+					URL:                 Ptr("https://api.github.com/teams/1"),
+					HTMLURL:             Ptr("https://github.com/orgs/github/teams/justice-league"),
+					Name:                Ptr("Justice League"),
+					Slug:                Ptr("justice-league"),
+					Description:         Ptr("A great team."),
+					Privacy:             Ptr("closed"),
+					Permission:          Ptr("admin"),
+					NotificationSetting: Ptr("notifications_enabled"),
+					MembersURL:          Ptr("https://api.github.com/teams/1/members{/member}"),
+					RepositoriesURL:     Ptr("https://api.github.com/teams/1/repos"),
+					Parent:              nil,
 				},
 				CreatedAt:               &createdAt1,
 				UpdatedAt:               &updatedAt1,
 				PendingCancellationDate: nil,
 				LastActivityAt:          &lastActivityAt1,
-				LastActivityEditor:      String("vscode/1.77.3/copilot/1.86.82"),
+				LastActivityEditor:      Ptr("vscode/1.77.3/copilot/1.86.82"),
 			},
 			{
 				Assignee: &User{
-					Login:             String("octokitten"),
-					ID:                Int64(1),
-					NodeID:            String("MDQ76VNlcjE="),
-					AvatarURL:         String("https://github.com/images/error/octokitten_happy.gif"),
-					GravatarID:        String(""),
-					URL:               String("https://api.github.com/users/octokitten"),
-					HTMLURL:           String("https://github.com/octokitten"),
-					FollowersURL:      String("https://api.github.com/users/octokitten/followers"),
-					FollowingURL:      String("https://api.github.com/users/octokitten/following{/other_user}"),
-					GistsURL:          String("https://api.github.com/users/octokitten/gists{/gist_id}"),
-					StarredURL:        String("https://api.github.com/users/octokitten/starred{/owner}{/repo}"),
-					SubscriptionsURL:  String("https://api.github.com/users/octokitten/subscriptions"),
-					OrganizationsURL:  String("https://api.github.com/users/octokitten/orgs"),
-					ReposURL:          String("https://api.github.com/users/octokitten/repos"),
-					EventsURL:         String("https://api.github.com/users/octokitten/events{/privacy}"),
-					ReceivedEventsURL: String("https://api.github.com/users/octokitten/received_events"),
-					Type:              String("User"),
-					SiteAdmin:         Bool(false),
+					Login:             Ptr("octokitten"),
+					ID:                Ptr(int64(1)),
+					NodeID:            Ptr("MDQ76VNlcjE="),
+					AvatarURL:         Ptr("https://github.com/images/error/octokitten_happy.gif"),
+					GravatarID:        Ptr(""),
+					URL:               Ptr("https://api.github.com/users/octokitten"),
+					HTMLURL:           Ptr("https://github.com/octokitten"),
+					FollowersURL:      Ptr("https://api.github.com/users/octokitten/followers"),
+					FollowingURL:      Ptr("https://api.github.com/users/octokitten/following{/other_user}"),
+					GistsURL:          Ptr("https://api.github.com/users/octokitten/gists{/gist_id}"),
+					StarredURL:        Ptr("https://api.github.com/users/octokitten/starred{/owner}{/repo}"),
+					SubscriptionsURL:  Ptr("https://api.github.com/users/octokitten/subscriptions"),
+					OrganizationsURL:  Ptr("https://api.github.com/users/octokitten/orgs"),
+					ReposURL:          Ptr("https://api.github.com/users/octokitten/repos"),
+					EventsURL:         Ptr("https://api.github.com/users/octokitten/events{/privacy}"),
+					ReceivedEventsURL: Ptr("https://api.github.com/users/octokitten/received_events"),
+					Type:              Ptr("User"),
+					SiteAdmin:         Ptr(false),
 				},
 				AssigningTeam:           nil,
 				CreatedAt:               &createdAt2,
 				UpdatedAt:               &updatedAt2,
-				PendingCancellationDate: String("2021-11-01"),
+				PendingCancellationDate: Ptr("2021-11-01"),
 				LastActivityAt:          &lastActivityAt2,
-				LastActivityEditor:      String("vscode/1.77.3/copilot/1.86.82"),
+				LastActivityEditor:      Ptr("vscode/1.77.3/copilot/1.86.82"),
 			},
 			{
 				Assignee: &Team{
-					ID:   Int64(1),
-					Name: String("octokittens"),
+					ID:   Ptr(int64(1)),
+					Name: Ptr("octokittens"),
 				},
 				AssigningTeam:           nil,
 				CreatedAt:               &createdAt2,
 				UpdatedAt:               &updatedAt2,
-				PendingCancellationDate: String("2021-11-01"),
+				PendingCancellationDate: Ptr("2021-11-01"),
 				LastActivityAt:          &lastActivityAt2,
-				LastActivityEditor:      String("vscode/1.77.3/copilot/1.86.82"),
+				LastActivityEditor:      Ptr("vscode/1.77.3/copilot/1.86.82"),
 			},
 			{
 				Assignee: &Organization{
-					ID:   Int64(1),
-					Name: String("octocats"),
-					Type: String("Organization"),
+					ID:   Ptr(int64(1)),
+					Name: Ptr("octocats"),
+					Type: Ptr("Organization"),
 				},
 				AssigningTeam:           nil,
 				CreatedAt:               &createdAt2,
 				UpdatedAt:               &updatedAt2,
-				PendingCancellationDate: String("2021-11-01"),
+				PendingCancellationDate: Ptr("2021-11-01"),
 				LastActivityAt:          &lastActivityAt2,
-				LastActivityEditor:      String("vscode/1.77.3/copilot/1.86.82"),
+				LastActivityEditor:      Ptr("vscode/1.77.3/copilot/1.86.82"),
 			},
 		},
 	}
@@ -733,7 +742,7 @@ func TestCopilotService_ListCopilotEnterpriseSeats(t *testing.T) {
 	}
 	lastActivityAt2 := Timestamp{tmp}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	opts := &ListOptions{Page: 1, PerPage: 100}
 	got, _, err := client.Copilot.ListCopilotEnterpriseSeats(ctx, "e", opts)
 	if err != nil {
@@ -745,73 +754,74 @@ func TestCopilotService_ListCopilotEnterpriseSeats(t *testing.T) {
 		Seats: []*CopilotSeatDetails{
 			{
 				Assignee: &User{
-					Login:             String("octocat"),
-					ID:                Int64(1),
-					NodeID:            String("MDQ6VXNlcjE="),
-					AvatarURL:         String("https://github.com/images/error/octocat_happy.gif"),
-					GravatarID:        String(""),
-					URL:               String("https://api.github.com/users/octocat"),
-					HTMLURL:           String("https://github.com/octocat"),
-					FollowersURL:      String("https://api.github.com/users/octocat/followers"),
-					FollowingURL:      String("https://api.github.com/users/octocat/following{/other_user}"),
-					GistsURL:          String("https://api.github.com/users/octocat/gists{/gist_id}"),
-					StarredURL:        String("https://api.github.com/users/octocat/starred{/owner}{/repo}"),
-					SubscriptionsURL:  String("https://api.github.com/users/octocat/subscriptions"),
-					OrganizationsURL:  String("https://api.github.com/users/octocat/orgs"),
-					ReposURL:          String("https://api.github.com/users/octocat/repos"),
-					EventsURL:         String("https://api.github.com/users/octocat/events{/privacy}"),
-					ReceivedEventsURL: String("https://api.github.com/users/octocat/received_events"),
-					Type:              String("User"),
-					SiteAdmin:         Bool(false),
+					Login:             Ptr("octocat"),
+					ID:                Ptr(int64(1)),
+					NodeID:            Ptr("MDQ6VXNlcjE="),
+					AvatarURL:         Ptr("https://github.com/images/error/octocat_happy.gif"),
+					GravatarID:        Ptr(""),
+					URL:               Ptr("https://api.github.com/users/octocat"),
+					HTMLURL:           Ptr("https://github.com/octocat"),
+					FollowersURL:      Ptr("https://api.github.com/users/octocat/followers"),
+					FollowingURL:      Ptr("https://api.github.com/users/octocat/following{/other_user}"),
+					GistsURL:          Ptr("https://api.github.com/users/octocat/gists{/gist_id}"),
+					StarredURL:        Ptr("https://api.github.com/users/octocat/starred{/owner}{/repo}"),
+					SubscriptionsURL:  Ptr("https://api.github.com/users/octocat/subscriptions"),
+					OrganizationsURL:  Ptr("https://api.github.com/users/octocat/orgs"),
+					ReposURL:          Ptr("https://api.github.com/users/octocat/repos"),
+					EventsURL:         Ptr("https://api.github.com/users/octocat/events{/privacy}"),
+					ReceivedEventsURL: Ptr("https://api.github.com/users/octocat/received_events"),
+					Type:              Ptr("User"),
+					SiteAdmin:         Ptr(false),
 				},
 				AssigningTeam: &Team{
-					ID:              Int64(1),
-					NodeID:          String("MDQ6VGVhbTE="),
-					URL:             String("https://api.github.com/teams/1"),
-					HTMLURL:         String("https://github.com/orgs/github/teams/justice-league"),
-					Name:            String("Justice League"),
-					Slug:            String("justice-league"),
-					Description:     String("A great team."),
-					Privacy:         String("closed"),
-					Permission:      String("admin"),
-					MembersURL:      String("https://api.github.com/teams/1/members{/member}"),
-					RepositoriesURL: String("https://api.github.com/teams/1/repos"),
-					Parent:          nil,
+					ID:                  Ptr(int64(1)),
+					NodeID:              Ptr("MDQ6VGVhbTE="),
+					URL:                 Ptr("https://api.github.com/teams/1"),
+					HTMLURL:             Ptr("https://github.com/orgs/github/teams/justice-league"),
+					Name:                Ptr("Justice League"),
+					Slug:                Ptr("justice-league"),
+					Description:         Ptr("A great team."),
+					Privacy:             Ptr("closed"),
+					NotificationSetting: Ptr("notifications_enabled"),
+					Permission:          Ptr("admin"),
+					MembersURL:          Ptr("https://api.github.com/teams/1/members{/member}"),
+					RepositoriesURL:     Ptr("https://api.github.com/teams/1/repos"),
+					Parent:              nil,
 				},
 				CreatedAt:               &createdAt1,
 				UpdatedAt:               &updatedAt1,
 				PendingCancellationDate: nil,
 				LastActivityAt:          &lastActivityAt1,
-				LastActivityEditor:      String("vscode/1.77.3/copilot/1.86.82"),
-				PlanType:                String("business"),
+				LastActivityEditor:      Ptr("vscode/1.77.3/copilot/1.86.82"),
+				PlanType:                Ptr("business"),
 			},
 			{
 				Assignee: &User{
-					Login:             String("octokitten"),
-					ID:                Int64(1),
-					NodeID:            String("MDQ76VNlcjE="),
-					AvatarURL:         String("https://github.com/images/error/octokitten_happy.gif"),
-					GravatarID:        String(""),
-					URL:               String("https://api.github.com/users/octokitten"),
-					HTMLURL:           String("https://github.com/octokitten"),
-					FollowersURL:      String("https://api.github.com/users/octokitten/followers"),
-					FollowingURL:      String("https://api.github.com/users/octokitten/following{/other_user}"),
-					GistsURL:          String("https://api.github.com/users/octokitten/gists{/gist_id}"),
-					StarredURL:        String("https://api.github.com/users/octokitten/starred{/owner}{/repo}"),
-					SubscriptionsURL:  String("https://api.github.com/users/octokitten/subscriptions"),
-					OrganizationsURL:  String("https://api.github.com/users/octokitten/orgs"),
-					ReposURL:          String("https://api.github.com/users/octokitten/repos"),
-					EventsURL:         String("https://api.github.com/users/octokitten/events{/privacy}"),
-					ReceivedEventsURL: String("https://api.github.com/users/octokitten/received_events"),
-					Type:              String("User"),
-					SiteAdmin:         Bool(false),
+					Login:             Ptr("octokitten"),
+					ID:                Ptr(int64(1)),
+					NodeID:            Ptr("MDQ76VNlcjE="),
+					AvatarURL:         Ptr("https://github.com/images/error/octokitten_happy.gif"),
+					GravatarID:        Ptr(""),
+					URL:               Ptr("https://api.github.com/users/octokitten"),
+					HTMLURL:           Ptr("https://github.com/octokitten"),
+					FollowersURL:      Ptr("https://api.github.com/users/octokitten/followers"),
+					FollowingURL:      Ptr("https://api.github.com/users/octokitten/following{/other_user}"),
+					GistsURL:          Ptr("https://api.github.com/users/octokitten/gists{/gist_id}"),
+					StarredURL:        Ptr("https://api.github.com/users/octokitten/starred{/owner}{/repo}"),
+					SubscriptionsURL:  Ptr("https://api.github.com/users/octokitten/subscriptions"),
+					OrganizationsURL:  Ptr("https://api.github.com/users/octokitten/orgs"),
+					ReposURL:          Ptr("https://api.github.com/users/octokitten/repos"),
+					EventsURL:         Ptr("https://api.github.com/users/octokitten/events{/privacy}"),
+					ReceivedEventsURL: Ptr("https://api.github.com/users/octokitten/received_events"),
+					Type:              Ptr("User"),
+					SiteAdmin:         Ptr(false),
 				},
 				AssigningTeam:           nil,
 				CreatedAt:               &createdAt2,
 				UpdatedAt:               &updatedAt2,
-				PendingCancellationDate: String("2021-11-01"),
+				PendingCancellationDate: Ptr("2021-11-01"),
 				LastActivityAt:          &lastActivityAt2,
-				LastActivityEditor:      String("vscode/1.77.3/copilot/1.86.82"),
+				LastActivityEditor:      Ptr("vscode/1.77.3/copilot/1.86.82"),
 				PlanType:                nil,
 			},
 		},
@@ -849,7 +859,7 @@ func TestCopilotService_AddCopilotTeams(t *testing.T) {
 		fmt.Fprint(w, `{"seats_created": 2}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.AddCopilotTeams(ctx, "o", []string{"team1", "team2"})
 	if err != nil {
 		t.Errorf("Copilot.AddCopilotTeams returned error: %v", err)
@@ -887,7 +897,7 @@ func TestCopilotService_RemoveCopilotTeams(t *testing.T) {
 		fmt.Fprint(w, `{"seats_cancelled": 2}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.RemoveCopilotTeams(ctx, "o", []string{"team1", "team2"})
 	if err != nil {
 		t.Errorf("Copilot.RemoveCopilotTeams returned error: %v", err)
@@ -925,7 +935,7 @@ func TestCopilotService_AddCopilotUsers(t *testing.T) {
 		fmt.Fprint(w, `{"seats_created": 2}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.AddCopilotUsers(ctx, "o", []string{"user1", "user2"})
 	if err != nil {
 		t.Errorf("Copilot.AddCopilotUsers returned error: %v", err)
@@ -963,7 +973,7 @@ func TestCopilotService_RemoveCopilotUsers(t *testing.T) {
 		fmt.Fprint(w, `{"seats_cancelled": 2}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.RemoveCopilotUsers(ctx, "o", []string{"user1", "user2"})
 	if err != nil {
 		t.Errorf("Copilot.RemoveCopilotUsers returned error: %v", err)
@@ -1059,7 +1069,7 @@ func TestCopilotService_GetSeatDetails(t *testing.T) {
 	}
 	lastActivityAt := Timestamp{tmp}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.GetSeatDetails(ctx, "o", "u")
 	if err != nil {
 		t.Errorf("Copilot.GetSeatDetails returned error: %v", err)
@@ -1067,44 +1077,45 @@ func TestCopilotService_GetSeatDetails(t *testing.T) {
 
 	want := &CopilotSeatDetails{
 		Assignee: &User{
-			Login:             String("octocat"),
-			ID:                Int64(1),
-			NodeID:            String("MDQ6VXNlcjE="),
-			AvatarURL:         String("https://github.com/images/error/octocat_happy.gif"),
-			GravatarID:        String(""),
-			URL:               String("https://api.github.com/users/octocat"),
-			HTMLURL:           String("https://github.com/octocat"),
-			FollowersURL:      String("https://api.github.com/users/octocat/followers"),
-			FollowingURL:      String("https://api.github.com/users/octocat/following{/other_user}"),
-			GistsURL:          String("https://api.github.com/users/octocat/gists{/gist_id}"),
-			StarredURL:        String("https://api.github.com/users/octocat/starred{/owner}{/repo}"),
-			SubscriptionsURL:  String("https://api.github.com/users/octocat/subscriptions"),
-			OrganizationsURL:  String("https://api.github.com/users/octocat/orgs"),
-			ReposURL:          String("https://api.github.com/users/octocat/repos"),
-			EventsURL:         String("https://api.github.com/users/octocat/events{/privacy}"),
-			ReceivedEventsURL: String("https://api.github.com/users/octocat/received_events"),
-			Type:              String("User"),
-			SiteAdmin:         Bool(false),
+			Login:             Ptr("octocat"),
+			ID:                Ptr(int64(1)),
+			NodeID:            Ptr("MDQ6VXNlcjE="),
+			AvatarURL:         Ptr("https://github.com/images/error/octocat_happy.gif"),
+			GravatarID:        Ptr(""),
+			URL:               Ptr("https://api.github.com/users/octocat"),
+			HTMLURL:           Ptr("https://github.com/octocat"),
+			FollowersURL:      Ptr("https://api.github.com/users/octocat/followers"),
+			FollowingURL:      Ptr("https://api.github.com/users/octocat/following{/other_user}"),
+			GistsURL:          Ptr("https://api.github.com/users/octocat/gists{/gist_id}"),
+			StarredURL:        Ptr("https://api.github.com/users/octocat/starred{/owner}{/repo}"),
+			SubscriptionsURL:  Ptr("https://api.github.com/users/octocat/subscriptions"),
+			OrganizationsURL:  Ptr("https://api.github.com/users/octocat/orgs"),
+			ReposURL:          Ptr("https://api.github.com/users/octocat/repos"),
+			EventsURL:         Ptr("https://api.github.com/users/octocat/events{/privacy}"),
+			ReceivedEventsURL: Ptr("https://api.github.com/users/octocat/received_events"),
+			Type:              Ptr("User"),
+			SiteAdmin:         Ptr(false),
 		},
 		AssigningTeam: &Team{
-			ID:              Int64(1),
-			NodeID:          String("MDQ6VGVhbTE="),
-			URL:             String("https://api.github.com/teams/1"),
-			HTMLURL:         String("https://github.com/orgs/github/teams/justice-league"),
-			Name:            String("Justice League"),
-			Slug:            String("justice-league"),
-			Description:     String("A great team."),
-			Privacy:         String("closed"),
-			Permission:      String("admin"),
-			MembersURL:      String("https://api.github.com/teams/1/members{/member}"),
-			RepositoriesURL: String("https://api.github.com/teams/1/repos"),
-			Parent:          nil,
+			ID:                  Ptr(int64(1)),
+			NodeID:              Ptr("MDQ6VGVhbTE="),
+			URL:                 Ptr("https://api.github.com/teams/1"),
+			HTMLURL:             Ptr("https://github.com/orgs/github/teams/justice-league"),
+			Name:                Ptr("Justice League"),
+			Slug:                Ptr("justice-league"),
+			Description:         Ptr("A great team."),
+			Privacy:             Ptr("closed"),
+			NotificationSetting: Ptr("notifications_enabled"),
+			Permission:          Ptr("admin"),
+			MembersURL:          Ptr("https://api.github.com/teams/1/members{/member}"),
+			RepositoriesURL:     Ptr("https://api.github.com/teams/1/repos"),
+			Parent:              nil,
 		},
 		CreatedAt:               &createdAt,
 		UpdatedAt:               &updatedAt,
 		PendingCancellationDate: nil,
 		LastActivityAt:          &lastActivityAt,
-		LastActivityEditor:      String("vscode/1.77.3/copilot/1.86.82"),
+		LastActivityEditor:      Ptr("vscode/1.77.3/copilot/1.86.82"),
 	}
 
 	if !cmp.Equal(got, want) {
@@ -1288,7 +1299,7 @@ func TestCopilotService_GetEnterpriseMetrics(t *testing.T) {
 		]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.GetEnterpriseMetrics(ctx, "e", &CopilotMetricsListOptions{})
 	if err != nil {
 		t.Errorf("Copilot.GetEnterpriseMetrics returned error: %v", err)
@@ -1351,7 +1362,7 @@ func TestCopilotService_GetEnterpriseMetrics(t *testing.T) {
 							{
 								Name:                    "a-custom-model",
 								IsCustomModel:           true,
-								CustomModelTrainingDate: String("2024-02-01"),
+								CustomModelTrainingDate: Ptr("2024-02-01"),
 								Languages: []*CopilotIDECodeCompletionsModelLanguage{
 									{
 										Name:                    "typescript",
@@ -1394,7 +1405,7 @@ func TestCopilotService_GetEnterpriseMetrics(t *testing.T) {
 							{
 								Name:                     "a-custom-model",
 								IsCustomModel:            true,
-								CustomModelTrainingDate:  String("2024-02-01"),
+								CustomModelTrainingDate:  Ptr("2024-02-01"),
 								TotalEngagedUsers:        1,
 								TotalChats:               10,
 								TotalChatInsertionEvents: 11,
@@ -1439,7 +1450,7 @@ func TestCopilotService_GetEnterpriseMetrics(t *testing.T) {
 							{
 								Name:                    "a-custom-model",
 								IsCustomModel:           true,
-								CustomModelTrainingDate: String("2024-02-01"),
+								CustomModelTrainingDate: Ptr("2024-02-01"),
 								TotalPRSummariesCreated: 10,
 								TotalEngagedUsers:       4,
 							},
@@ -1631,7 +1642,7 @@ func TestCopilotService_GetEnterpriseTeamMetrics(t *testing.T) {
 		]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.GetEnterpriseTeamMetrics(ctx, "e", "t", &CopilotMetricsListOptions{})
 	if err != nil {
 		t.Errorf("Copilot.GetEnterpriseTeamMetrics returned error: %v", err)
@@ -1694,7 +1705,7 @@ func TestCopilotService_GetEnterpriseTeamMetrics(t *testing.T) {
 							{
 								Name:                    "a-custom-model",
 								IsCustomModel:           true,
-								CustomModelTrainingDate: String("2024-02-01"),
+								CustomModelTrainingDate: Ptr("2024-02-01"),
 								Languages: []*CopilotIDECodeCompletionsModelLanguage{
 									{
 										Name:                    "typescript",
@@ -1737,7 +1748,7 @@ func TestCopilotService_GetEnterpriseTeamMetrics(t *testing.T) {
 							{
 								Name:                     "a-custom-model",
 								IsCustomModel:            true,
-								CustomModelTrainingDate:  String("2024-02-01"),
+								CustomModelTrainingDate:  Ptr("2024-02-01"),
 								TotalEngagedUsers:        1,
 								TotalChats:               10,
 								TotalChatInsertionEvents: 11,
@@ -1782,7 +1793,7 @@ func TestCopilotService_GetEnterpriseTeamMetrics(t *testing.T) {
 							{
 								Name:                    "a-custom-model",
 								IsCustomModel:           true,
-								CustomModelTrainingDate: String("2024-02-01"),
+								CustomModelTrainingDate: Ptr("2024-02-01"),
 								TotalPRSummariesCreated: 10,
 								TotalEngagedUsers:       4,
 							},
@@ -1974,7 +1985,7 @@ func TestCopilotService_GetOrganizationMetrics(t *testing.T) {
 		]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.GetOrganizationMetrics(ctx, "o", &CopilotMetricsListOptions{})
 	if err != nil {
 		t.Errorf("Copilot.GetOrganizationMetrics returned error: %v", err)
@@ -2037,7 +2048,7 @@ func TestCopilotService_GetOrganizationMetrics(t *testing.T) {
 							{
 								Name:                    "a-custom-model",
 								IsCustomModel:           true,
-								CustomModelTrainingDate: String("2024-02-01"),
+								CustomModelTrainingDate: Ptr("2024-02-01"),
 								Languages: []*CopilotIDECodeCompletionsModelLanguage{
 									{
 										Name:                    "typescript",
@@ -2080,7 +2091,7 @@ func TestCopilotService_GetOrganizationMetrics(t *testing.T) {
 							{
 								Name:                     "a-custom-model",
 								IsCustomModel:            true,
-								CustomModelTrainingDate:  String("2024-02-01"),
+								CustomModelTrainingDate:  Ptr("2024-02-01"),
 								TotalEngagedUsers:        1,
 								TotalChats:               10,
 								TotalChatInsertionEvents: 11,
@@ -2125,7 +2136,7 @@ func TestCopilotService_GetOrganizationMetrics(t *testing.T) {
 							{
 								Name:                    "a-custom-model",
 								IsCustomModel:           true,
-								CustomModelTrainingDate: String("2024-02-01"),
+								CustomModelTrainingDate: Ptr("2024-02-01"),
 								TotalPRSummariesCreated: 10,
 								TotalEngagedUsers:       4,
 							},
@@ -2317,7 +2328,7 @@ func TestCopilotService_GetOrganizationTeamMetrics(t *testing.T) {
 		]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Copilot.GetOrganizationTeamMetrics(ctx, "o", "t", &CopilotMetricsListOptions{})
 	if err != nil {
 		t.Errorf("Copilot.GetOrganizationTeamMetrics returned error: %v", err)
@@ -2380,7 +2391,7 @@ func TestCopilotService_GetOrganizationTeamMetrics(t *testing.T) {
 							{
 								Name:                    "a-custom-model",
 								IsCustomModel:           true,
-								CustomModelTrainingDate: String("2024-02-01"),
+								CustomModelTrainingDate: Ptr("2024-02-01"),
 								Languages: []*CopilotIDECodeCompletionsModelLanguage{
 									{
 										Name:                    "typescript",
@@ -2423,7 +2434,7 @@ func TestCopilotService_GetOrganizationTeamMetrics(t *testing.T) {
 							{
 								Name:                     "a-custom-model",
 								IsCustomModel:            true,
-								CustomModelTrainingDate:  String("2024-02-01"),
+								CustomModelTrainingDate:  Ptr("2024-02-01"),
 								TotalEngagedUsers:        1,
 								TotalChats:               10,
 								TotalChatInsertionEvents: 11,
@@ -2468,7 +2479,7 @@ func TestCopilotService_GetOrganizationTeamMetrics(t *testing.T) {
 							{
 								Name:                    "a-custom-model",
 								IsCustomModel:           true,
-								CustomModelTrainingDate: String("2024-02-01"),
+								CustomModelTrainingDate: Ptr("2024-02-01"),
 								TotalPRSummariesCreated: 10,
 								TotalEngagedUsers:       4,
 							},
@@ -2494,6 +2505,366 @@ func TestCopilotService_GetOrganizationTeamMetrics(t *testing.T) {
 		got, resp, err := client.Copilot.GetOrganizationTeamMetrics(ctx, "o", "t", &CopilotMetricsListOptions{})
 		if got != nil {
 			t.Errorf("Copilot.GetOrganizationTeamMetrics returned %+v, want nil", got)
+		}
+		return resp, err
+	})
+}
+
+func TestCopilotService_GetEnterpriseDailyMetricsReport(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/enterprises/e/copilot/metrics/reports/enterprise-1-day", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		testFormValues(t, r, values{"day": "2025-07-01"})
+		fmt.Fprint(w, `{
+			"download_links": ["https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"],
+			"report_day": "2025-07-01"
+		}`)
+	})
+
+	ctx := t.Context()
+	opts := &CopilotMetricsReportOptions{Day: "2025-07-01"}
+	got, _, err := client.Copilot.GetEnterpriseDailyMetricsReport(ctx, "e", opts)
+	if err != nil {
+		t.Errorf("Copilot.GetEnterpriseDailyMetricsReport returned error: %v", err)
+	}
+
+	want := &CopilotDailyMetricsReport{
+		DownloadLinks: []string{"https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"},
+		ReportDay:     "2025-07-01",
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Errorf("Copilot.GetEnterpriseDailyMetricsReport returned %+v, want %+v", got, want)
+	}
+
+	const methodName = "GetEnterpriseDailyMetricsReport"
+
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Copilot.GetEnterpriseDailyMetricsReport(ctx, "\n", opts)
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Copilot.GetEnterpriseDailyMetricsReport(ctx, "e", opts)
+		if got != nil {
+			t.Errorf("Copilot.GetEnterpriseDailyMetricsReport returned %+v, want nil", got)
+		}
+		return resp, err
+	})
+}
+
+func TestCopilotService_GetEnterpriseMetricsReport(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/enterprises/e/copilot/metrics/reports/enterprise-28-day/latest", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		fmt.Fprint(w, `{
+			"download_links": ["https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"],
+			"report_start_day": "2025-07-01",
+			"report_end_day": "2025-07-28"
+		}`)
+	})
+
+	ctx := t.Context()
+	got, _, err := client.Copilot.GetEnterpriseMetricsReport(ctx, "e")
+	if err != nil {
+		t.Errorf("Copilot.GetEnterpriseMetricsReport returned error: %v", err)
+	}
+
+	want := &CopilotMetricsReport{
+		DownloadLinks:  []string{"https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"},
+		ReportStartDay: "2025-07-01",
+		ReportEndDay:   "2025-07-28",
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Errorf("Copilot.GetEnterpriseMetricsReport returned %+v, want %+v", got, want)
+	}
+
+	const methodName = "GetEnterpriseMetricsReport"
+
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Copilot.GetEnterpriseMetricsReport(ctx, "\n")
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Copilot.GetEnterpriseMetricsReport(ctx, "e")
+		if got != nil {
+			t.Errorf("Copilot.GetEnterpriseMetricsReport returned %+v, want nil", got)
+		}
+		return resp, err
+	})
+}
+
+func TestCopilotService_GetEnterpriseUsersDailyMetricsReport(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/enterprises/e/copilot/metrics/reports/users-1-day", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		testFormValues(t, r, values{"day": "2025-07-01"})
+		fmt.Fprint(w, `{
+			"download_links": ["https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"],
+			"report_day": "2025-07-01"
+		}`)
+	})
+
+	ctx := t.Context()
+	opts := &CopilotMetricsReportOptions{Day: "2025-07-01"}
+	got, _, err := client.Copilot.GetEnterpriseUsersDailyMetricsReport(ctx, "e", opts)
+	if err != nil {
+		t.Errorf("Copilot.GetEnterpriseUsersDailyMetricsReport returned error: %v", err)
+	}
+
+	want := &CopilotDailyMetricsReport{
+		DownloadLinks: []string{"https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"},
+		ReportDay:     "2025-07-01",
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Errorf("Copilot.GetEnterpriseUsersDailyMetricsReport returned %+v, want %+v", got, want)
+	}
+
+	const methodName = "GetEnterpriseUsersDailyMetricsReport"
+
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Copilot.GetEnterpriseUsersDailyMetricsReport(ctx, "\n", opts)
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Copilot.GetEnterpriseUsersDailyMetricsReport(ctx, "e", opts)
+		if got != nil {
+			t.Errorf("Copilot.GetEnterpriseUsersDailyMetricsReport returned %+v, want nil", got)
+		}
+		return resp, err
+	})
+}
+
+func TestCopilotService_GetEnterpriseUsersMetricsReport(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/enterprises/e/copilot/metrics/reports/users-28-day/latest", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		fmt.Fprint(w, `{
+			"download_links": ["https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"],
+			"report_start_day": "2025-07-01",
+			"report_end_day": "2025-07-28"
+		}`)
+	})
+
+	ctx := t.Context()
+	got, _, err := client.Copilot.GetEnterpriseUsersMetricsReport(ctx, "e")
+	if err != nil {
+		t.Errorf("Copilot.GetEnterpriseUsersMetricsReport returned error: %v", err)
+	}
+
+	want := &CopilotMetricsReport{
+		DownloadLinks:  []string{"https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"},
+		ReportStartDay: "2025-07-01",
+		ReportEndDay:   "2025-07-28",
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Errorf("Copilot.GetEnterpriseUsersMetricsReport returned %+v, want %+v", got, want)
+	}
+
+	const methodName = "GetEnterpriseUsersMetricsReport"
+
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Copilot.GetEnterpriseUsersMetricsReport(ctx, "\n")
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Copilot.GetEnterpriseUsersMetricsReport(ctx, "e")
+		if got != nil {
+			t.Errorf("Copilot.GetEnterpriseUsersMetricsReport returned %+v, want nil", got)
+		}
+		return resp, err
+	})
+}
+
+func TestCopilotService_GetOrganizationDailyMetricsReport(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/orgs/o/copilot/metrics/reports/organization-1-day", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		testFormValues(t, r, values{"day": "2025-07-01"})
+		fmt.Fprint(w, `{
+			"download_links": ["https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"],
+			"report_day": "2025-07-01"
+		}`)
+	})
+
+	ctx := t.Context()
+	opts := &CopilotMetricsReportOptions{Day: "2025-07-01"}
+	got, _, err := client.Copilot.GetOrganizationDailyMetricsReport(ctx, "o", opts)
+	if err != nil {
+		t.Errorf("Copilot.GetOrganizationDailyMetricsReport returned error: %v", err)
+	}
+
+	want := &CopilotDailyMetricsReport{
+		DownloadLinks: []string{"https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"},
+		ReportDay:     "2025-07-01",
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Errorf("Copilot.GetOrganizationDailyMetricsReport returned %+v, want %+v", got, want)
+	}
+
+	const methodName = "GetOrganizationDailyMetricsReport"
+
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Copilot.GetOrganizationDailyMetricsReport(ctx, "\n", opts)
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Copilot.GetOrganizationDailyMetricsReport(ctx, "o", opts)
+		if got != nil {
+			t.Errorf("Copilot.GetOrganizationDailyMetricsReport returned %+v, want nil", got)
+		}
+		return resp, err
+	})
+}
+
+func TestCopilotService_GetOrganizationMetricsReport(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/orgs/o/copilot/metrics/reports/organization-28-day/latest", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		fmt.Fprint(w, `{
+			"download_links": ["https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"],
+			"report_start_day": "2025-07-01",
+			"report_end_day": "2025-07-28"
+		}`)
+	})
+
+	ctx := t.Context()
+	got, _, err := client.Copilot.GetOrganizationMetricsReport(ctx, "o")
+	if err != nil {
+		t.Errorf("Copilot.GetOrganizationMetricsReport returned error: %v", err)
+	}
+
+	want := &CopilotMetricsReport{
+		DownloadLinks:  []string{"https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"},
+		ReportStartDay: "2025-07-01",
+		ReportEndDay:   "2025-07-28",
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Errorf("Copilot.GetOrganizationMetricsReport returned %+v, want %+v", got, want)
+	}
+
+	const methodName = "GetOrganizationMetricsReport"
+
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Copilot.GetOrganizationMetricsReport(ctx, "\n")
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Copilot.GetOrganizationMetricsReport(ctx, "o")
+		if got != nil {
+			t.Errorf("Copilot.GetOrganizationMetricsReport returned %+v, want nil", got)
+		}
+		return resp, err
+	})
+}
+
+func TestCopilotService_GetOrganizationUsersDailyMetricsReport(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/orgs/o/copilot/metrics/reports/users-1-day", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		testFormValues(t, r, values{"day": "2025-07-01"})
+		fmt.Fprint(w, `{
+			"download_links": ["https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"],
+			"report_day": "2025-07-01"
+		}`)
+	})
+
+	ctx := t.Context()
+	opts := &CopilotMetricsReportOptions{Day: "2025-07-01"}
+	got, _, err := client.Copilot.GetOrganizationUsersDailyMetricsReport(ctx, "o", opts)
+	if err != nil {
+		t.Errorf("Copilot.GetOrganizationUsersDailyMetricsReport returned error: %v", err)
+	}
+
+	want := &CopilotDailyMetricsReport{
+		DownloadLinks: []string{"https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"},
+		ReportDay:     "2025-07-01",
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Errorf("Copilot.GetOrganizationUsersDailyMetricsReport returned %+v, want %+v", got, want)
+	}
+
+	const methodName = "GetOrganizationUsersDailyMetricsReport"
+
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Copilot.GetOrganizationUsersDailyMetricsReport(ctx, "\n", opts)
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Copilot.GetOrganizationUsersDailyMetricsReport(ctx, "o", opts)
+		if got != nil {
+			t.Errorf("Copilot.GetOrganizationUsersDailyMetricsReport returned %+v, want nil", got)
+		}
+		return resp, err
+	})
+}
+
+func TestCopilotService_GetOrganizationUsersMetricsReport(t *testing.T) {
+	t.Parallel()
+	client, mux, _ := setup(t)
+
+	mux.HandleFunc("/orgs/o/copilot/metrics/reports/users-28-day/latest", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, "GET")
+		fmt.Fprint(w, `{
+			"download_links": ["https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"],
+			"report_start_day": "2025-07-01",
+			"report_end_day": "2025-07-28"
+		}`)
+	})
+
+	ctx := t.Context()
+	got, _, err := client.Copilot.GetOrganizationUsersMetricsReport(ctx, "o")
+	if err != nil {
+		t.Errorf("Copilot.GetOrganizationUsersMetricsReport returned error: %v", err)
+	}
+
+	want := &CopilotMetricsReport{
+		DownloadLinks:  []string{"https://example.com/copilot-usage-report-1.json", "https://example.com/copilot-usage-report-2.json"},
+		ReportStartDay: "2025-07-01",
+		ReportEndDay:   "2025-07-28",
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Errorf("Copilot.GetOrganizationUsersMetricsReport returned %+v, want %+v", got, want)
+	}
+
+	const methodName = "GetOrganizationUsersMetricsReport"
+
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Copilot.GetOrganizationUsersMetricsReport(ctx, "\n")
+		return err
+	})
+
+	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
+		got, resp, err := client.Copilot.GetOrganizationUsersMetricsReport(ctx, "o")
+		if got != nil {
+			t.Errorf("Copilot.GetOrganizationUsersMetricsReport returned %+v, want nil", got)
 		}
 		return resp, err
 	})

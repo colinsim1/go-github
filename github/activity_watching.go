@@ -31,7 +31,7 @@ type Subscription struct {
 //
 //meta:operation GET /repos/{owner}/{repo}/subscribers
 func (s *ActivityService) ListWatchers(ctx context.Context, owner, repo string, opts *ListOptions) ([]*User, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/subscribers", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/subscribers", owner, repo)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -55,6 +55,7 @@ func (s *ActivityService) ListWatchers(ctx context.Context, owner, repo string, 
 // the empty string will fetch watched repos for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/activity/watching#list-repositories-watched-by-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/activity/watching#list-repositories-watched-by-the-authenticated-user
 //
 //meta:operation GET /user/subscriptions
@@ -93,7 +94,7 @@ func (s *ActivityService) ListWatched(ctx context.Context, user string, opts *Li
 //
 //meta:operation GET /repos/{owner}/{repo}/subscription
 func (s *ActivityService) GetRepositorySubscription(ctx context.Context, owner, repo string) (*Subscription, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/subscription", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/subscription", owner, repo)
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
@@ -122,7 +123,7 @@ func (s *ActivityService) GetRepositorySubscription(ctx context.Context, owner, 
 //
 //meta:operation PUT /repos/{owner}/{repo}/subscription
 func (s *ActivityService) SetRepositorySubscription(ctx context.Context, owner, repo string, subscription *Subscription) (*Subscription, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/subscription", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/subscription", owner, repo)
 
 	req, err := s.client.NewRequest("PUT", u, subscription)
 	if err != nil {
@@ -148,7 +149,7 @@ func (s *ActivityService) SetRepositorySubscription(ctx context.Context, owner, 
 //
 //meta:operation DELETE /repos/{owner}/{repo}/subscription
 func (s *ActivityService) DeleteRepositorySubscription(ctx context.Context, owner, repo string) (*Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/subscription", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/subscription", owner, repo)
 	req, err := s.client.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return nil, err

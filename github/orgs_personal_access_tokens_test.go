@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,11 +33,11 @@ func TestOrganizationsService_ListFineGrainedPersonalAccessTokens(t *testing.T) 
 		for key, expectedValues := range expectedQuery {
 			actualValues := query[key]
 			if len(actualValues) != len(expectedValues) {
-				t.Errorf("Expected %d values for query param %s, got %d", len(expectedValues), key, len(actualValues))
+				t.Errorf("Expected %v values for query param %v, got %v", len(expectedValues), key, len(actualValues))
 			}
 			for i, expectedValue := range expectedValues {
 				if actualValues[i] != expectedValue {
-					t.Errorf("Expected query param %s to be %s, got %s", key, expectedValue, actualValues[i])
+					t.Errorf("Expected query param %v to be %v, got %v", key, expectedValue, actualValues[i])
 				}
 			}
 		}
@@ -91,7 +90,7 @@ func TestOrganizationsService_ListFineGrainedPersonalAccessTokens(t *testing.T) 
 		Direction:   "desc",
 		Owner:       []string{"octocat", "octodog", "otherbot"},
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	tokens, resp, err := client.Organizations.ListFineGrainedPersonalAccessTokens(ctx, "o", opts)
 	if err != nil {
 		t.Errorf("Organizations.ListFineGrainedPersonalAccessTokens returned error: %v", err)
@@ -99,35 +98,35 @@ func TestOrganizationsService_ListFineGrainedPersonalAccessTokens(t *testing.T) 
 
 	want := []*PersonalAccessToken{
 		{
-			ID: Int64(25381),
+			ID: Ptr(int64(25381)),
 			Owner: &User{
-				Login:             String("octocat"),
-				ID:                Int64(1),
-				NodeID:            String("MDQ6VXNlcjE="),
-				AvatarURL:         String("https://github.com/images/error/octocat_happy.gif"),
-				GravatarID:        String(""),
-				URL:               String("https://api.github.com/users/octocat"),
-				HTMLURL:           String("https://github.com/octocat"),
-				FollowersURL:      String("https://api.github.com/users/octocat/followers"),
-				FollowingURL:      String("https://api.github.com/users/octocat/following{/other_user}"),
-				GistsURL:          String("https://api.github.com/users/octocat/gists{/gist_id}"),
-				StarredURL:        String("https://api.github.com/users/octocat/starred{/owner}{/repo}"),
-				SubscriptionsURL:  String("https://api.github.com/users/octocat/subscriptions"),
-				OrganizationsURL:  String("https://api.github.com/users/octocat/orgs"),
-				ReposURL:          String("https://api.github.com/users/octocat/repos"),
-				EventsURL:         String("https://api.github.com/users/octocat/events{/privacy}"),
-				ReceivedEventsURL: String("https://api.github.com/users/octocat/received_events"),
-				Type:              String("User"),
-				SiteAdmin:         Bool(false),
+				Login:             Ptr("octocat"),
+				ID:                Ptr(int64(1)),
+				NodeID:            Ptr("MDQ6VXNlcjE="),
+				AvatarURL:         Ptr("https://github.com/images/error/octocat_happy.gif"),
+				GravatarID:        Ptr(""),
+				URL:               Ptr("https://api.github.com/users/octocat"),
+				HTMLURL:           Ptr("https://github.com/octocat"),
+				FollowersURL:      Ptr("https://api.github.com/users/octocat/followers"),
+				FollowingURL:      Ptr("https://api.github.com/users/octocat/following{/other_user}"),
+				GistsURL:          Ptr("https://api.github.com/users/octocat/gists{/gist_id}"),
+				StarredURL:        Ptr("https://api.github.com/users/octocat/starred{/owner}{/repo}"),
+				SubscriptionsURL:  Ptr("https://api.github.com/users/octocat/subscriptions"),
+				OrganizationsURL:  Ptr("https://api.github.com/users/octocat/orgs"),
+				ReposURL:          Ptr("https://api.github.com/users/octocat/repos"),
+				EventsURL:         Ptr("https://api.github.com/users/octocat/events{/privacy}"),
+				ReceivedEventsURL: Ptr("https://api.github.com/users/octocat/received_events"),
+				Type:              Ptr("User"),
+				SiteAdmin:         Ptr(false),
 			},
-			RepositorySelection: String("all"),
-			RepositoriesURL:     String("https://api.github.com/organizations/652551/personal-access-tokens/25381/repositories"),
+			RepositorySelection: Ptr("all"),
+			RepositoriesURL:     Ptr("https://api.github.com/organizations/652551/personal-access-tokens/25381/repositories"),
 			Permissions: &PersonalAccessTokenPermissions{
 				Org:  map[string]string{"members": "read"},
 				Repo: map[string]string{"metadata": "read"},
 			},
 			AccessGrantedAt: &Timestamp{time.Date(2023, time.May, 16, 8, 47, 9, 0, time.FixedZone("PDT", -7*60*60))},
-			TokenExpired:    Bool(false),
+			TokenExpired:    Ptr(false),
 			TokenExpiresAt:  &Timestamp{time.Date(2023, time.November, 16, 8, 47, 9, 0, time.FixedZone("PDT", -7*60*60))},
 			TokenLastUsedAt: nil,
 		},
@@ -141,6 +140,10 @@ func TestOrganizationsService_ListFineGrainedPersonalAccessTokens(t *testing.T) 
 	}
 
 	const methodName = "ListFineGrainedPersonalAccessTokens"
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Organizations.ListFineGrainedPersonalAccessTokens(ctx, "o", nil)
+		return err
+	})
 	testBadOptions(t, methodName, func() (err error) {
 		_, _, err = client.Organizations.ListFineGrainedPersonalAccessTokens(ctx, "\n", opts)
 		return err
@@ -161,14 +164,14 @@ func TestOrganizationsService_ReviewPersonalAccessTokenRequest(t *testing.T) {
 
 	input := ReviewPersonalAccessTokenRequestOptions{
 		Action: "a",
-		Reason: String("r"),
+		Reason: Ptr("r"),
 	}
 
 	mux.HandleFunc("/orgs/o/personal-access-token-requests/1", func(w http.ResponseWriter, r *http.Request) {
 		v := new(ReviewPersonalAccessTokenRequestOptions)
 		assertNilError(t, json.NewDecoder(r.Body).Decode(v))
 
-		testMethod(t, r, http.MethodPost)
+		testMethod(t, r, "POST")
 		if !cmp.Equal(v, &input) {
 			t.Errorf("Request body = %+v, want %+v", v, input)
 		}
@@ -176,7 +179,7 @@ func TestOrganizationsService_ReviewPersonalAccessTokenRequest(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	res, err := client.Organizations.ReviewPersonalAccessTokenRequest(ctx, "o", 1, input)
 	if err != nil {
 		t.Errorf("Organizations.ReviewPersonalAccessTokenRequest returned error: %v", err)
@@ -203,7 +206,7 @@ func TestReviewPersonalAccessTokenRequestOptions_Marshal(t *testing.T) {
 
 	u := &ReviewPersonalAccessTokenRequestOptions{
 		Action: "a",
-		Reason: String("r"),
+		Reason: Ptr("r"),
 	}
 
 	want := `{

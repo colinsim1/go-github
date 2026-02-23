@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -30,13 +29,13 @@ func TestUsersService_ListEmails(t *testing.T) {
 	})
 
 	opt := &ListOptions{Page: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	emails, _, err := client.Users.ListEmails(ctx, opt)
 	if err != nil {
 		t.Errorf("Users.ListEmails returned error: %v", err)
 	}
 
-	want := []*UserEmail{{Email: String("user@example.com"), Verified: Bool(false), Primary: Bool(true)}}
+	want := []*UserEmail{{Email: Ptr("user@example.com"), Verified: Ptr(false), Primary: Ptr(true)}}
 	if !cmp.Equal(emails, want) {
 		t.Errorf("Users.ListEmails returned %+v, want %+v", emails, want)
 	}
@@ -69,15 +68,15 @@ func TestUsersService_AddEmails(t *testing.T) {
 		fmt.Fprint(w, `[{"email":"old@example.com"}, {"email":"new@example.com"}]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	emails, _, err := client.Users.AddEmails(ctx, input)
 	if err != nil {
 		t.Errorf("Users.AddEmails returned error: %v", err)
 	}
 
 	want := []*UserEmail{
-		{Email: String("old@example.com")},
-		{Email: String("new@example.com")},
+		{Email: Ptr("old@example.com")},
+		{Email: Ptr("new@example.com")},
 	}
 	if !cmp.Equal(emails, want) {
 		t.Errorf("Users.AddEmails returned %+v, want %+v", emails, want)
@@ -99,7 +98,7 @@ func TestUsersService_DeleteEmails(t *testing.T) {
 
 	input := []string{"user@example.com"}
 
-	mux.HandleFunc("/user/emails", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/user/emails", func(_ http.ResponseWriter, r *http.Request) {
 		var v []string
 		assertNilError(t, json.NewDecoder(r.Body).Decode(&v))
 
@@ -109,7 +108,7 @@ func TestUsersService_DeleteEmails(t *testing.T) {
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Users.DeleteEmails(ctx, input)
 	if err != nil {
 		t.Errorf("Users.DeleteEmails returned error: %v", err)
@@ -126,10 +125,10 @@ func TestUserEmail_Marshal(t *testing.T) {
 	testJSONMarshal(t, &UserEmail{}, "{}")
 
 	u := &UserEmail{
-		Email:      String("qwe@qwe.qwe"),
-		Primary:    Bool(false),
-		Verified:   Bool(true),
-		Visibility: String("yes"),
+		Email:      Ptr("qwe@qwe.qwe"),
+		Primary:    Ptr(false),
+		Verified:   Ptr(true),
+		Visibility: Ptr("yes"),
 	}
 
 	want := `{
@@ -146,7 +145,7 @@ func TestUsersService_SetEmailVisibility(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	input := &UserEmail{Visibility: String("private")}
+	input := &UserEmail{Visibility: Ptr("private")}
 
 	mux.HandleFunc("/user/email/visibility", func(w http.ResponseWriter, r *http.Request) {
 		v := new(UserEmail)
@@ -165,13 +164,13 @@ func TestUsersService_SetEmailVisibility(t *testing.T) {
 		}]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	emails, _, err := client.Users.SetEmailVisibility(ctx, "private")
 	if err != nil {
 		t.Errorf("Users.SetEmailVisibility returned error: %v", err)
 	}
 
-	want := []*UserEmail{{Email: String("user@example.com"), Verified: Bool(false), Primary: Bool(true), Visibility: String("private")}}
+	want := []*UserEmail{{Email: Ptr("user@example.com"), Verified: Ptr(false), Primary: Ptr(true), Visibility: Ptr("private")}}
 	if !cmp.Equal(emails, want) {
 		t.Errorf("Users.SetEmailVisibility returned %+v, want %+v", emails, want)
 	}

@@ -29,10 +29,16 @@ type Issue struct {
 	Number *int    `json:"number,omitempty"`
 	State  *string `json:"state,omitempty"`
 	// StateReason can be one of: "completed", "not_planned", "reopened".
-	StateReason       *string           `json:"state_reason,omitempty"`
-	Locked            *bool             `json:"locked,omitempty"`
-	Title             *string           `json:"title,omitempty"`
-	Body              *string           `json:"body,omitempty"`
+	StateReason *string `json:"state_reason,omitempty"`
+	Locked      *bool   `json:"locked,omitempty"`
+	Title       *string `json:"title,omitempty"`
+	Body        *string `json:"body,omitempty"`
+	// AuthorAssociation is the issue author's relationship to the repository.
+	// Possible values are "COLLABORATOR", "CONTRIBUTOR", "FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR", "MEMBER", "OWNER", or "NONE".
+	//
+	// Deprecated: GitHub will remove this field from Events API payloads on October 7, 2025.
+	// Use the Issues REST API endpoint to retrieve this information.
+	// See: https://docs.github.com/rest/issues/issues#get-an-issue
 	AuthorAssociation *string           `json:"author_association,omitempty"`
 	User              *User             `json:"user,omitempty"`
 	Labels            []*Label          `json:"labels,omitempty"`
@@ -48,6 +54,7 @@ type Issue struct {
 	EventsURL         *string           `json:"events_url,omitempty"`
 	LabelsURL         *string           `json:"labels_url,omitempty"`
 	RepositoryURL     *string           `json:"repository_url,omitempty"`
+	ParentIssueURL    *string           `json:"parent_issue_url,omitempty"`
 	Milestone         *Milestone        `json:"milestone,omitempty"`
 	PullRequestLinks  *PullRequestLinks `json:"pull_request,omitempty"`
 	Repository        *Repository       `json:"repository,omitempty"`
@@ -55,6 +62,7 @@ type Issue struct {
 	Assignees         []*User           `json:"assignees,omitempty"`
 	NodeID            *string           `json:"node_id,omitempty"`
 	Draft             *bool             `json:"draft,omitempty"`
+	Type              *IssueType        `json:"type,omitempty"`
 
 	// TextMatches is only populated from search results that request text matches
 	// See: search.go and https://docs.github.com/rest/search/#text-match-metadata
@@ -89,13 +97,99 @@ type IssueRequest struct {
 	StateReason *string   `json:"state_reason,omitempty"`
 	Milestone   *int      `json:"milestone,omitempty"`
 	Assignees   *[]string `json:"assignees,omitempty"`
+	Type        *string   `json:"type,omitempty"`
 }
 
-// IssueListOptions specifies the optional parameters to the IssuesService.List
-// and IssuesService.ListByOrg methods.
-type IssueListOptions struct {
+// PullRequestLinks object is added to the Issue object when it's an issue included
+// in the IssueCommentEvent webhook payload, if the webhook is fired by a comment on a PR.
+type PullRequestLinks struct {
+	URL      *string    `json:"url,omitempty"`
+	HTMLURL  *string    `json:"html_url,omitempty"`
+	DiffURL  *string    `json:"diff_url,omitempty"`
+	PatchURL *string    `json:"patch_url,omitempty"`
+	MergedAt *Timestamp `json:"merged_at,omitempty"`
+}
+
+// IssueType represents the type of issue.
+// For now it shows up when receiving an Issue event.
+type IssueType struct {
+	ID          *int64     `json:"id,omitempty"`
+	NodeID      *string    `json:"node_id,omitempty"`
+	Name        *string    `json:"name,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	Color       *string    `json:"color,omitempty"`
+	CreatedAt   *Timestamp `json:"created_at,omitempty"`
+	UpdatedAt   *Timestamp `json:"updated_at,omitempty"`
+}
+
+// ListAllIssuesOptions specifies the optional parameters to the
+// IssuesService.ListAllIssues method.
+type ListAllIssuesOptions struct {
 	// Filter specifies which issues to list. Possible values are: assigned,
-	// created, mentioned, subscribed, all. Default is "assigned".
+	// created, mentioned, subscribed, repos, all. Default is "assigned".
+	Filter string `url:"filter,omitempty"`
+
+	// State filters issues based on their state. Possible values are: open,
+	// closed, all. Default is "open".
+	State string `url:"state,omitempty"`
+
+	// Labels filters issues based on their label.
+	Labels []string `url:"labels,comma,omitempty"`
+
+	// Sort specifies how to sort issues. Possible values are: created, updated,
+	// and comments. Default value is "created".
+	Sort string `url:"sort,omitempty"`
+
+	// Direction in which to sort issues. Possible values are: asc, desc.
+	// Default is "desc".
+	Direction string `url:"direction,omitempty"`
+
+	// Since filters issues by time.
+	Since time.Time `url:"since,omitempty"`
+
+	Collab bool `url:"collab,omitempty"`
+	Orgs   bool `url:"orgs,omitempty"`
+	Owned  bool `url:"owned,omitempty"`
+	Pulls  bool `url:"pulls,omitempty"`
+
+	ListOptions
+}
+
+// ListAllIssues gets issues assigned to the authenticated user across all visible repositories including owned repositories,
+// member repositories, and organization repositories.
+// You can use the filter query parameter to fetch issues that are not necessarily assigned to you.
+//
+// GitHub API docs: https://docs.github.com/rest/issues/issues#list-issues-assigned-to-the-authenticated-user
+//
+//meta:operation GET /issues
+func (s *IssuesService) ListAllIssues(ctx context.Context, opts *ListAllIssuesOptions) ([]*Issue, *Response, error) {
+	u := "issues"
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req.Header.Set("Accept", mediaTypeReactionsPreview)
+
+	var issues []*Issue
+	resp, err := s.client.Do(ctx, req, &issues)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return issues, resp, nil
+}
+
+// ListUserIssuesOptions specifies the optional parameters to the
+// IssuesService.ListUserIssues method.
+type ListUserIssuesOptions struct {
+	// Filter specifies which issues to list. Possible values are: assigned,
+	// created, mentioned, subscribed, repos, all. Default is "assigned".
 	Filter string `url:"filter,omitempty"`
 
 	// State filters issues based on their state. Possible values are: open,
@@ -119,48 +213,13 @@ type IssueListOptions struct {
 	ListOptions
 }
 
-// PullRequestLinks object is added to the Issue object when it's an issue included
-// in the IssueCommentEvent webhook payload, if the webhook is fired by a comment on a PR.
-type PullRequestLinks struct {
-	URL      *string    `json:"url,omitempty"`
-	HTMLURL  *string    `json:"html_url,omitempty"`
-	DiffURL  *string    `json:"diff_url,omitempty"`
-	PatchURL *string    `json:"patch_url,omitempty"`
-	MergedAt *Timestamp `json:"merged_at,omitempty"`
-}
-
-// List the issues for the authenticated user. If all is true, list issues
-// across all the user's visible repositories including owned, member, and
-// organization repositories; if false, list only owned and member
-// repositories.
+// ListUserIssues gets issues across owned and member repositories assigned to the authenticated user.
 //
-// GitHub API docs: https://docs.github.com/rest/issues/issues#list-issues-assigned-to-the-authenticated-user
 // GitHub API docs: https://docs.github.com/rest/issues/issues#list-user-account-issues-assigned-to-the-authenticated-user
 //
-//meta:operation GET /issues
 //meta:operation GET /user/issues
-func (s *IssuesService) List(ctx context.Context, all bool, opts *IssueListOptions) ([]*Issue, *Response, error) {
-	var u string
-	if all {
-		u = "issues"
-	} else {
-		u = "user/issues"
-	}
-	return s.listIssues(ctx, u, opts)
-}
-
-// ListByOrg fetches the issues in the specified organization for the
-// authenticated user.
-//
-// GitHub API docs: https://docs.github.com/rest/issues/issues#list-organization-issues-assigned-to-the-authenticated-user
-//
-//meta:operation GET /orgs/{org}/issues
-func (s *IssuesService) ListByOrg(ctx context.Context, org string, opts *IssueListOptions) ([]*Issue, *Response, error) {
-	u := fmt.Sprintf("orgs/%v/issues", org)
-	return s.listIssues(ctx, u, opts)
-}
-
-func (s *IssuesService) listIssues(ctx context.Context, u string, opts *IssueListOptions) ([]*Issue, *Response, error) {
+func (s *IssuesService) ListUserIssues(ctx context.Context, opts *ListUserIssuesOptions) ([]*Issue, *Response, error) {
+	u := "user/issues"
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -171,7 +230,66 @@ func (s *IssuesService) listIssues(ctx context.Context, u string, opts *IssueLis
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launch.
+	req.Header.Set("Accept", mediaTypeReactionsPreview)
+
+	var issues []*Issue
+	resp, err := s.client.Do(ctx, req, &issues)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return issues, resp, nil
+}
+
+// IssueListByOrgOptions specifies the optional parameters to the
+// IssuesService.ListByOrg method.
+type IssueListByOrgOptions struct {
+	// Filter specifies which issues to list. Possible values are: assigned,
+	// created, mentioned, subscribed, repos, all. Default is "assigned".
+	Filter string `url:"filter,omitempty"`
+
+	// State filters issues based on their state. Possible values are: open,
+	// closed, all. Default is "open".
+	State string `url:"state,omitempty"`
+
+	// Labels filters issues based on their label.
+	Labels []string `url:"labels,comma,omitempty"`
+
+	// Type can be the name of an issue type.
+	Type string `url:"type,omitempty"`
+
+	// Sort specifies how to sort issues. Possible values are: created, updated,
+	// and comments. Default value is "created".
+	Sort string `url:"sort,omitempty"`
+
+	// Direction in which to sort issues. Possible values are: asc, desc.
+	// Default is "desc".
+	Direction string `url:"direction,omitempty"`
+
+	// Since filters issues by time.
+	Since time.Time `url:"since,omitempty"`
+
+	ListOptions
+}
+
+// ListByOrg fetches the issues in the specified organization for the
+// authenticated user.
+//
+// GitHub API docs: https://docs.github.com/rest/issues/issues#list-organization-issues-assigned-to-the-authenticated-user
+//
+//meta:operation GET /orgs/{org}/issues
+func (s *IssuesService) ListByOrg(ctx context.Context, org string, opts *IssueListByOrgOptions) ([]*Issue, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/issues", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	req.Header.Set("Accept", mediaTypeReactionsPreview)
 
 	var issues []*Issue
@@ -200,6 +318,11 @@ type IssueListByRepoOptions struct {
 	// any assigned user.
 	Assignee string `url:"assignee,omitempty"`
 
+	// Type can be the name of an issue type.
+	// If the string * is passed, issues with any type are accepted.
+	// If the string none is passed, issues without type are returned.
+	Type string `url:"type,omitempty"`
+
 	// Creator filters issues based on their creator.
 	Creator string `url:"creator,omitempty"`
 
@@ -220,6 +343,11 @@ type IssueListByRepoOptions struct {
 	// Since filters issues by time.
 	Since time.Time `url:"since,omitempty"`
 
+	// ListCursorOptions specifies the optional parameters for cursor pagination.
+	ListCursorOptions
+
+	// Add ListOptions so offset pagination with integer type "page" query parameter is accepted
+	// since ListCursorOptions accepts "page" as string only.
 	ListOptions
 }
 
@@ -228,7 +356,7 @@ type IssueListByRepoOptions struct {
 // GitHub API docs: https://docs.github.com/rest/issues/issues#list-repository-issues
 //
 //meta:operation GET /repos/{owner}/{repo}/issues
-func (s *IssuesService) ListByRepo(ctx context.Context, owner string, repo string, opts *IssueListByRepoOptions) ([]*Issue, *Response, error) {
+func (s *IssuesService) ListByRepo(ctx context.Context, owner, repo string, opts *IssueListByRepoOptions) ([]*Issue, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/issues", owner, repo)
 	u, err := addOptions(u, opts)
 	if err != nil {
@@ -240,7 +368,6 @@ func (s *IssuesService) ListByRepo(ctx context.Context, owner string, repo strin
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeReactionsPreview)
 
 	var issues []*Issue
@@ -257,14 +384,13 @@ func (s *IssuesService) ListByRepo(ctx context.Context, owner string, repo strin
 // GitHub API docs: https://docs.github.com/rest/issues/issues#get-an-issue
 //
 //meta:operation GET /repos/{owner}/{repo}/issues/{issue_number}
-func (s *IssuesService) Get(ctx context.Context, owner string, repo string, number int) (*Issue, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/issues/%d", owner, repo, number)
+func (s *IssuesService) Get(ctx context.Context, owner, repo string, number int) (*Issue, *Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/issues/%v", owner, repo, number)
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launch.
 	req.Header.Set("Accept", mediaTypeReactionsPreview)
 
 	issue := new(Issue)
@@ -281,7 +407,7 @@ func (s *IssuesService) Get(ctx context.Context, owner string, repo string, numb
 // GitHub API docs: https://docs.github.com/rest/issues/issues#create-an-issue
 //
 //meta:operation POST /repos/{owner}/{repo}/issues
-func (s *IssuesService) Create(ctx context.Context, owner string, repo string, issue *IssueRequest) (*Issue, *Response, error) {
+func (s *IssuesService) Create(ctx context.Context, owner, repo string, issue *IssueRequest) (*Issue, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/issues", owner, repo)
 	req, err := s.client.NewRequest("POST", u, issue)
 	if err != nil {
@@ -302,8 +428,8 @@ func (s *IssuesService) Create(ctx context.Context, owner string, repo string, i
 // GitHub API docs: https://docs.github.com/rest/issues/issues#update-an-issue
 //
 //meta:operation PATCH /repos/{owner}/{repo}/issues/{issue_number}
-func (s *IssuesService) Edit(ctx context.Context, owner string, repo string, number int, issue *IssueRequest) (*Issue, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/issues/%d", owner, repo, number)
+func (s *IssuesService) Edit(ctx context.Context, owner, repo string, number int, issue *IssueRequest) (*Issue, *Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/issues/%v", owner, repo, number)
 	req, err := s.client.NewRequest("PATCH", u, issue)
 	if err != nil {
 		return nil, nil, err
@@ -357,8 +483,8 @@ type LockIssueOptions struct {
 // GitHub API docs: https://docs.github.com/rest/issues/issues#lock-an-issue
 //
 //meta:operation PUT /repos/{owner}/{repo}/issues/{issue_number}/lock
-func (s *IssuesService) Lock(ctx context.Context, owner string, repo string, number int, opts *LockIssueOptions) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/issues/%d/lock", owner, repo, number)
+func (s *IssuesService) Lock(ctx context.Context, owner, repo string, number int, opts *LockIssueOptions) (*Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/issues/%v/lock", owner, repo, number)
 	req, err := s.client.NewRequest("PUT", u, opts)
 	if err != nil {
 		return nil, err
@@ -372,8 +498,8 @@ func (s *IssuesService) Lock(ctx context.Context, owner string, repo string, num
 // GitHub API docs: https://docs.github.com/rest/issues/issues#unlock-an-issue
 //
 //meta:operation DELETE /repos/{owner}/{repo}/issues/{issue_number}/lock
-func (s *IssuesService) Unlock(ctx context.Context, owner string, repo string, number int) (*Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/issues/%d/lock", owner, repo, number)
+func (s *IssuesService) Unlock(ctx context.Context, owner, repo string, number int) (*Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/issues/%v/lock", owner, repo, number)
 	req, err := s.client.NewRequest("DELETE", u, nil)
 	if err != nil {
 		return nil, err

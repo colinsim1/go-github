@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -80,14 +81,13 @@ func (s *IssueImportService) Create(ctx context.Context, owner, repo string, iss
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept headers when APIs fully launch.
 	req.Header.Set("Accept", mediaTypeIssueImportAPI)
 
 	i := new(IssueImportResponse)
 	resp, err := s.client.Do(ctx, req, i)
 	if err != nil {
-		aerr, ok := err.(*AcceptedError)
-		if ok {
+		var aerr *AcceptedError
+		if errors.As(err, &aerr) {
 			if err := json.Unmarshal(aerr.Raw, i); err != nil {
 				return i, resp, err
 			}
@@ -111,7 +111,6 @@ func (s *IssueImportService) CheckStatus(ctx context.Context, owner, repo string
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept headers when APIs fully launch.
 	req.Header.Set("Accept", mediaTypeIssueImportAPI)
 
 	i := new(IssueImportResponse)
@@ -135,7 +134,6 @@ func (s *IssueImportService) CheckStatusSince(ctx context.Context, owner, repo s
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept headers when APIs fully launch.
 	req.Header.Set("Accept", mediaTypeIssueImportAPI)
 
 	var b bytes.Buffer

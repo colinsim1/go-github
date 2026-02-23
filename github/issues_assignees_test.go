@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -26,13 +25,13 @@ func TestIssuesService_ListAssignees(t *testing.T) {
 	})
 
 	opt := &ListOptions{Page: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	assignees, _, err := client.Issues.ListAssignees(ctx, "o", "r", opt)
 	if err != nil {
 		t.Errorf("Issues.ListAssignees returned error: %v", err)
 	}
 
-	want := []*User{{ID: Int64(1)}}
+	want := []*User{{ID: Ptr(int64(1))}}
 	if !cmp.Equal(assignees, want) {
 		t.Errorf("Issues.ListAssignees returned %+v, want %+v", assignees, want)
 	}
@@ -56,7 +55,7 @@ func TestIssuesService_ListAssignees_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Issues.ListAssignees(ctx, "%", "r", nil)
 	testURLParseError(t, err)
 }
@@ -65,11 +64,11 @@ func TestIssuesService_IsAssignee_true(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/assignees/u", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/assignees/u", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	assignee, _, err := client.Issues.IsAssignee(ctx, "o", "r", "u")
 	if err != nil {
 		t.Errorf("Issues.IsAssignee returned error: %v", err)
@@ -102,7 +101,7 @@ func TestIssuesService_IsAssignee_false(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	assignee, _, err := client.Issues.IsAssignee(ctx, "o", "r", "u")
 	if err != nil {
 		t.Errorf("Issues.IsAssignee returned error: %v", err)
@@ -135,10 +134,10 @@ func TestIssuesService_IsAssignee_error(t *testing.T) {
 		http.Error(w, "BadRequest", http.StatusBadRequest)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	assignee, _, err := client.Issues.IsAssignee(ctx, "o", "r", "u")
 	if err == nil {
-		t.Errorf("Expected HTTP 400 response")
+		t.Error("Expected HTTP 400 response")
 	}
 	if want := false; assignee != want {
 		t.Errorf("Issues.IsAssignee returned %+v, want %+v", assignee, want)
@@ -163,7 +162,7 @@ func TestIssuesService_IsAssignee_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Issues.IsAssignee(ctx, "%", "r", "u")
 	testURLParseError(t, err)
 }
@@ -186,13 +185,13 @@ func TestIssuesService_AddAssignees(t *testing.T) {
 		fmt.Fprint(w, `{"number":1,"assignees":[{"login":"user1"},{"login":"user2"}]}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Issues.AddAssignees(ctx, "o", "r", 1, []string{"user1", "user2"})
 	if err != nil {
 		t.Errorf("Issues.AddAssignees returned error: %v", err)
 	}
 
-	want := &Issue{Number: Int(1), Assignees: []*User{{Login: String("user1")}, {Login: String("user2")}}}
+	want := &Issue{Number: Ptr(1), Assignees: []*User{{Login: Ptr("user1")}, {Login: Ptr("user2")}}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Issues.AddAssignees = %+v, want %+v", got, want)
 	}
@@ -230,13 +229,13 @@ func TestIssuesService_RemoveAssignees(t *testing.T) {
 		fmt.Fprint(w, `{"number":1,"assignees":[]}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Issues.RemoveAssignees(ctx, "o", "r", 1, []string{"user1", "user2"})
 	if err != nil {
 		t.Errorf("Issues.RemoveAssignees returned error: %v", err)
 	}
 
-	want := &Issue{Number: Int(1), Assignees: []*User{}}
+	want := &Issue{Number: Ptr(1), Assignees: []*User{}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Issues.RemoveAssignees = %+v, want %+v", got, want)
 	}

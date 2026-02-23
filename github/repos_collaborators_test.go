@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -22,19 +21,19 @@ func TestRepositoriesService_ListCollaborators(t *testing.T) {
 	mux.HandleFunc("/repos/o/r/collaborators", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		testFormValues(t, r, values{"page": "2"})
-		fmt.Fprintf(w, `[{"id":1}, {"id":2}]`)
+		fmt.Fprint(w, `[{"id":1}, {"id":2}]`)
 	})
 
 	opt := &ListCollaboratorsOptions{
 		ListOptions: ListOptions{Page: 2},
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	users, _, err := client.Repositories.ListCollaborators(ctx, "o", "r", opt)
 	if err != nil {
 		t.Errorf("Repositories.ListCollaborators returned error: %v", err)
 	}
 
-	want := []*User{{ID: Int64(1)}, {ID: Int64(2)}}
+	want := []*User{{ID: Ptr(int64(1))}, {ID: Ptr(int64(2))}}
 	if !cmp.Equal(users, want) {
 		t.Errorf("Repositories.ListCollaborators returned %+v, want %+v", users, want)
 	}
@@ -61,20 +60,20 @@ func TestRepositoriesService_ListCollaborators_withAffiliation(t *testing.T) {
 	mux.HandleFunc("/repos/o/r/collaborators", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		testFormValues(t, r, values{"affiliation": "all", "page": "2"})
-		fmt.Fprintf(w, `[{"id":1}, {"id":2}]`)
+		fmt.Fprint(w, `[{"id":1}, {"id":2}]`)
 	})
 
 	opt := &ListCollaboratorsOptions{
 		ListOptions: ListOptions{Page: 2},
 		Affiliation: "all",
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	users, _, err := client.Repositories.ListCollaborators(ctx, "o", "r", opt)
 	if err != nil {
 		t.Errorf("Repositories.ListCollaborators returned error: %v", err)
 	}
 
-	want := []*User{{ID: Int64(1)}, {ID: Int64(2)}}
+	want := []*User{{ID: Ptr(int64(1))}, {ID: Ptr(int64(2))}}
 	if !cmp.Equal(users, want) {
 		t.Errorf("Repositories.ListCollaborators returned %+v, want %+v", users, want)
 	}
@@ -101,20 +100,20 @@ func TestRepositoriesService_ListCollaborators_withPermission(t *testing.T) {
 	mux.HandleFunc("/repos/o/r/collaborators", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		testFormValues(t, r, values{"permission": "pull", "page": "2"})
-		fmt.Fprintf(w, `[{"id":1}, {"id":2}]`)
+		fmt.Fprint(w, `[{"id":1}, {"id":2}]`)
 	})
 
 	opt := &ListCollaboratorsOptions{
 		ListOptions: ListOptions{Page: 2},
 		Permission:  "pull",
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	users, _, err := client.Repositories.ListCollaborators(ctx, "o", "r", opt)
 	if err != nil {
 		t.Errorf("Repositories.ListCollaborators returned error: %v", err)
 	}
 
-	want := []*User{{ID: Int64(1)}, {ID: Int64(2)}}
+	want := []*User{{ID: Ptr(int64(1))}, {ID: Ptr(int64(2))}}
 	if !cmp.Equal(users, want) {
 		t.Errorf("Repositories.ListCollaborators returned %+v, want %+v", users, want)
 	}
@@ -138,7 +137,7 @@ func TestRepositoriesService_ListCollaborators_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.ListCollaborators(ctx, "%", "%", nil)
 	testURLParseError(t, err)
 }
@@ -152,14 +151,14 @@ func TestRepositoriesService_IsCollaborator_True(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	isCollab, _, err := client.Repositories.IsCollaborator(ctx, "o", "r", "u")
 	if err != nil {
 		t.Errorf("Repositories.IsCollaborator returned error: %v", err)
 	}
 
 	if !isCollab {
-		t.Errorf("Repositories.IsCollaborator returned false, want true")
+		t.Error("Repositories.IsCollaborator returned false, want true")
 	}
 
 	const methodName = "IsCollaborator"
@@ -186,14 +185,14 @@ func TestRepositoriesService_IsCollaborator_False(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	isCollab, _, err := client.Repositories.IsCollaborator(ctx, "o", "r", "u")
 	if err != nil {
 		t.Errorf("Repositories.IsCollaborator returned error: %v", err)
 	}
 
 	if isCollab {
-		t.Errorf("Repositories.IsCollaborator returned true, want false")
+		t.Error("Repositories.IsCollaborator returned true, want false")
 	}
 
 	const methodName = "IsCollaborator"
@@ -215,7 +214,7 @@ func TestRepositoriesService_IsCollaborator_invalidUser(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.IsCollaborator(ctx, "%", "%", "%")
 	testURLParseError(t, err)
 }
@@ -226,19 +225,19 @@ func TestRepositoryService_GetPermissionLevel(t *testing.T) {
 
 	mux.HandleFunc("/repos/o/r/collaborators/u/permission", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		fmt.Fprintf(w, `{"permission":"admin","user":{"login":"u"}}`)
+		fmt.Fprint(w, `{"permission":"admin","user":{"login":"u"}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	rpl, _, err := client.Repositories.GetPermissionLevel(ctx, "o", "r", "u")
 	if err != nil {
 		t.Errorf("Repositories.GetPermissionLevel returned error: %v", err)
 	}
 
 	want := &RepositoryPermissionLevel{
-		Permission: String("admin"),
+		Permission: Ptr("admin"),
 		User: &User{
-			Login: String("u"),
+			Login: Ptr("u"),
 		},
 	}
 
@@ -276,27 +275,27 @@ func TestRepositoriesService_AddCollaborator(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		assertWrite(t, w, []byte(`{"permissions": "write","url": "https://api.github.com/user/repository_invitations/1296269","html_url": "https://github.com/octocat/Hello-World/invitations","id":1,"permissions":"write","repository":{"url":"s","name":"r","id":1},"invitee":{"login":"u"},"inviter":{"login":"o"}}`))
 	})
-	ctx := context.Background()
+	ctx := t.Context()
 	collaboratorInvitation, _, err := client.Repositories.AddCollaborator(ctx, "o", "r", "u", opt)
 	if err != nil {
 		t.Errorf("Repositories.AddCollaborator returned error: %v", err)
 	}
 	want := &CollaboratorInvitation{
-		ID: Int64(1),
+		ID: Ptr(int64(1)),
 		Repo: &Repository{
-			ID:   Int64(1),
-			URL:  String("s"),
-			Name: String("r"),
+			ID:   Ptr(int64(1)),
+			URL:  Ptr("s"),
+			Name: Ptr("r"),
 		},
 		Invitee: &User{
-			Login: String("u"),
+			Login: Ptr("u"),
 		},
 		Inviter: &User{
-			Login: String("o"),
+			Login: Ptr("o"),
 		},
-		Permissions: String("write"),
-		URL:         String("https://api.github.com/user/repository_invitations/1296269"),
-		HTMLURL:     String("https://github.com/octocat/Hello-World/invitations"),
+		Permissions: Ptr("write"),
+		URL:         Ptr("https://api.github.com/user/repository_invitations/1296269"),
+		HTMLURL:     Ptr("https://github.com/octocat/Hello-World/invitations"),
 	}
 
 	if !cmp.Equal(collaboratorInvitation, want) {
@@ -322,7 +321,7 @@ func TestRepositoriesService_AddCollaborator_invalidUser(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.AddCollaborator(ctx, "%", "%", "%", nil)
 	testURLParseError(t, err)
 }
@@ -336,7 +335,7 @@ func TestRepositoriesService_RemoveCollaborator(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Repositories.RemoveCollaborator(ctx, "o", "r", "u")
 	if err != nil {
 		t.Errorf("Repositories.RemoveCollaborator returned error: %v", err)
@@ -357,7 +356,7 @@ func TestRepositoriesService_RemoveCollaborator_invalidUser(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Repositories.RemoveCollaborator(ctx, "%", "%", "%")
 	testURLParseError(t, err)
 }
@@ -382,24 +381,24 @@ func TestRepositoryPermissionLevel_Marshal(t *testing.T) {
 	testJSONMarshal(t, &RepositoryPermissionLevel{}, "{}")
 
 	r := &RepositoryPermissionLevel{
-		Permission: String("permission"),
+		Permission: Ptr("permission"),
 		User: &User{
-			Login:           String("l"),
-			ID:              Int64(1),
-			URL:             String("u"),
-			AvatarURL:       String("a"),
-			GravatarID:      String("g"),
-			Name:            String("n"),
-			Company:         String("c"),
-			Blog:            String("b"),
-			Location:        String("l"),
-			Email:           String("e"),
-			Hireable:        Bool(true),
-			Bio:             String("b"),
-			TwitterUsername: String("t"),
-			PublicRepos:     Int(1),
-			Followers:       Int(1),
-			Following:       Int(1),
+			Login:           Ptr("l"),
+			ID:              Ptr(int64(1)),
+			URL:             Ptr("u"),
+			AvatarURL:       Ptr("a"),
+			GravatarID:      Ptr("g"),
+			Name:            Ptr("n"),
+			Company:         Ptr("c"),
+			Blog:            Ptr("b"),
+			Location:        Ptr("l"),
+			Email:           Ptr("e"),
+			Hireable:        Ptr(true),
+			Bio:             Ptr("b"),
+			TwitterUsername: Ptr("t"),
+			PublicRepos:     Ptr(1),
+			Followers:       Ptr(1),
+			Following:       Ptr(1),
 			CreatedAt:       &Timestamp{referenceTime},
 			SuspendedAt:     &Timestamp{referenceTime},
 		},
@@ -437,57 +436,56 @@ func TestCollaboratorInvitation_Marshal(t *testing.T) {
 	testJSONMarshal(t, &CollaboratorInvitation{}, "{}")
 
 	r := &CollaboratorInvitation{
-		ID: Int64(1),
+		ID: Ptr(int64(1)),
 		Repo: &Repository{
-
-			ID:   Int64(1),
-			URL:  String("url"),
-			Name: String("n"),
+			ID:   Ptr(int64(1)),
+			URL:  Ptr("url"),
+			Name: Ptr("n"),
 		},
 		Invitee: &User{
-			Login:           String("l"),
-			ID:              Int64(1),
-			URL:             String("u"),
-			AvatarURL:       String("a"),
-			GravatarID:      String("g"),
-			Name:            String("n"),
-			Company:         String("c"),
-			Blog:            String("b"),
-			Location:        String("l"),
-			Email:           String("e"),
-			Hireable:        Bool(true),
-			Bio:             String("b"),
-			TwitterUsername: String("t"),
-			PublicRepos:     Int(1),
-			Followers:       Int(1),
-			Following:       Int(1),
+			Login:           Ptr("l"),
+			ID:              Ptr(int64(1)),
+			URL:             Ptr("u"),
+			AvatarURL:       Ptr("a"),
+			GravatarID:      Ptr("g"),
+			Name:            Ptr("n"),
+			Company:         Ptr("c"),
+			Blog:            Ptr("b"),
+			Location:        Ptr("l"),
+			Email:           Ptr("e"),
+			Hireable:        Ptr(true),
+			Bio:             Ptr("b"),
+			TwitterUsername: Ptr("t"),
+			PublicRepos:     Ptr(1),
+			Followers:       Ptr(1),
+			Following:       Ptr(1),
 			CreatedAt:       &Timestamp{referenceTime},
 			SuspendedAt:     &Timestamp{referenceTime},
 		},
 		Inviter: &User{
-			Login:           String("l"),
-			ID:              Int64(1),
-			URL:             String("u"),
-			AvatarURL:       String("a"),
-			GravatarID:      String("g"),
-			Name:            String("n"),
-			Company:         String("c"),
-			Blog:            String("b"),
-			Location:        String("l"),
-			Email:           String("e"),
-			Hireable:        Bool(true),
-			Bio:             String("b"),
-			TwitterUsername: String("t"),
-			PublicRepos:     Int(1),
-			Followers:       Int(1),
-			Following:       Int(1),
+			Login:           Ptr("l"),
+			ID:              Ptr(int64(1)),
+			URL:             Ptr("u"),
+			AvatarURL:       Ptr("a"),
+			GravatarID:      Ptr("g"),
+			Name:            Ptr("n"),
+			Company:         Ptr("c"),
+			Blog:            Ptr("b"),
+			Location:        Ptr("l"),
+			Email:           Ptr("e"),
+			Hireable:        Ptr(true),
+			Bio:             Ptr("b"),
+			TwitterUsername: Ptr("t"),
+			PublicRepos:     Ptr(1),
+			Followers:       Ptr(1),
+			Following:       Ptr(1),
 			CreatedAt:       &Timestamp{referenceTime},
 			SuspendedAt:     &Timestamp{referenceTime},
 		},
-		Permissions: String("per"),
+		Permissions: Ptr("per"),
 		CreatedAt:   &Timestamp{referenceTime},
-		URL:         String("url"),
-		HTMLURL:     String("hurl"),
+		URL:         Ptr("url"),
+		HTMLURL:     Ptr("hurl"),
 	}
 
 	want := `{

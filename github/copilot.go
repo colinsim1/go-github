@@ -46,14 +46,14 @@ type ListCopilotSeatsResponse struct {
 // CopilotSeatDetails represents the details of a Copilot for Business seat.
 type CopilotSeatDetails struct {
 	// Assignee can either be a User, Team, or Organization.
-	Assignee                interface{} `json:"assignee"`
-	AssigningTeam           *Team       `json:"assigning_team,omitempty"`
-	PendingCancellationDate *string     `json:"pending_cancellation_date,omitempty"`
-	LastActivityAt          *Timestamp  `json:"last_activity_at,omitempty"`
-	LastActivityEditor      *string     `json:"last_activity_editor,omitempty"`
-	CreatedAt               *Timestamp  `json:"created_at"`
-	UpdatedAt               *Timestamp  `json:"updated_at,omitempty"`
-	PlanType                *string     `json:"plan_type,omitempty"`
+	Assignee                any        `json:"assignee"`
+	AssigningTeam           *Team      `json:"assigning_team,omitempty"`
+	PendingCancellationDate *string    `json:"pending_cancellation_date,omitempty"`
+	LastActivityAt          *Timestamp `json:"last_activity_at,omitempty"`
+	LastActivityEditor      *string    `json:"last_activity_editor,omitempty"`
+	CreatedAt               *Timestamp `json:"created_at"`
+	UpdatedAt               *Timestamp `json:"updated_at,omitempty"`
+	PlanType                *string    `json:"plan_type,omitempty"`
 }
 
 // SeatAssignments represents the number of seats assigned.
@@ -185,6 +185,25 @@ type CopilotMetrics struct {
 	CopilotDotcomPullRequests *CopilotDotcomPullRequests `json:"copilot_dotcom_pull_requests,omitempty"`
 }
 
+// CopilotMetricsReportOptions specifies the optional parameters for single-day metrics report endpoints.
+type CopilotMetricsReportOptions struct {
+	Day string `url:"day"` // Required, format: YYYY-MM-DD
+}
+
+// CopilotDailyMetricsReport represents the response from 1-day Copilot metrics report endpoints.
+type CopilotDailyMetricsReport struct {
+	DownloadLinks []string `json:"download_links"`
+	ReportDay     string   `json:"report_day"`
+}
+
+// CopilotMetricsReport represents the response from 28-day Copilot metrics report endpoints.
+type CopilotMetricsReport struct {
+	DownloadLinks  []string `json:"download_links"`
+	ReportStartDay string   `json:"report_start_day"`
+	ReportEndDay   string   `json:"report_end_day"`
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (cp *CopilotSeatDetails) UnmarshalJSON(data []byte) error {
 	// Using an alias to avoid infinite recursion when calling json.Unmarshal
 	type alias CopilotSeatDetails
@@ -203,7 +222,12 @@ func (cp *CopilotSeatDetails) UnmarshalJSON(data []byte) error {
 	cp.PlanType = seatDetail.PlanType
 
 	switch v := seatDetail.Assignee.(type) {
-	case map[string]interface{}:
+	case nil:
+		// Assignee can be null according to GitHub API specification.
+		// See: https://docs.github.com/en/rest/copilot/copilot-user-management?apiVersion=2022-11-28#list-all-copilot-seat-assignments-for-an-organization
+		// Note: Copilot API is in public preview and subject to change.
+		cp.Assignee = nil
+	case map[string]any:
 		jsonData, err := json.Marshal(seatDetail.Assignee)
 		if err != nil {
 			return err
@@ -307,7 +331,7 @@ func (s *CopilotService) ListCopilotSeats(ctx context.Context, org string, opts 
 //
 // To paginate through all seats, populate 'Page' with the number of the last page.
 //
-// GitHub API docs: https://docs.github.com/rest/copilot/copilot-user-management#list-all-copilot-seat-assignments-for-an-enterprise
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-user-management#list-all-copilot-seat-assignments-for-an-enterprise
 //
 //meta:operation GET /enterprises/{enterprise}/copilot/billing/seats
 func (s *CopilotService) ListCopilotEnterpriseSeats(ctx context.Context, enterprise string, opts *ListOptions) (*ListCopilotSeatsResponse, *Response, error) {
@@ -467,7 +491,7 @@ func (s *CopilotService) GetSeatDetails(ctx context.Context, org, user string) (
 
 // GetEnterpriseMetrics gets Copilot usage metrics for an enterprise.
 //
-// GitHub API docs: https://docs.github.com/rest/copilot/copilot-metrics#get-copilot-metrics-for-an-enterprise
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-metrics#get-copilot-metrics-for-an-enterprise
 //
 //meta:operation GET /enterprises/{enterprise}/copilot/metrics
 func (s *CopilotService) GetEnterpriseMetrics(ctx context.Context, enterprise string, opts *CopilotMetricsListOptions) ([]*CopilotMetrics, *Response, error) {
@@ -493,7 +517,7 @@ func (s *CopilotService) GetEnterpriseMetrics(ctx context.Context, enterprise st
 
 // GetEnterpriseTeamMetrics gets Copilot usage metrics for an enterprise team.
 //
-// GitHub API docs: https://docs.github.com/rest/copilot/copilot-metrics#get-copilot-metrics-for-an-enterprise-team
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-metrics#get-copilot-metrics-for-an-enterprise-team
 //
 //meta:operation GET /enterprises/{enterprise}/team/{team_slug}/copilot/metrics
 func (s *CopilotService) GetEnterpriseTeamMetrics(ctx context.Context, enterprise, team string, opts *CopilotMetricsListOptions) ([]*CopilotMetrics, *Response, error) {
@@ -567,4 +591,196 @@ func (s *CopilotService) GetOrganizationTeamMetrics(ctx context.Context, org, te
 	}
 
 	return metrics, resp, nil
+}
+
+// GetEnterpriseDailyMetricsReport gets a report containing Copilot metrics for a single day for an enterprise.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-usage-metrics#get-copilot-enterprise-usage-metrics-for-a-specific-day
+//
+//meta:operation GET /enterprises/{enterprise}/copilot/metrics/reports/enterprise-1-day
+func (s *CopilotService) GetEnterpriseDailyMetricsReport(ctx context.Context, enterprise string, opts *CopilotMetricsReportOptions) (*CopilotDailyMetricsReport, *Response, error) {
+	u := fmt.Sprintf("enterprises/%v/copilot/metrics/reports/enterprise-1-day", enterprise)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotDailyMetricsReport
+	resp, err := s.client.Do(ctx, req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetEnterpriseMetricsReport gets a report containing Copilot metrics for a 28-day rolling window for an enterprise.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-usage-metrics#get-copilot-enterprise-usage-metrics
+//
+//meta:operation GET /enterprises/{enterprise}/copilot/metrics/reports/enterprise-28-day/latest
+func (s *CopilotService) GetEnterpriseMetricsReport(ctx context.Context, enterprise string) (*CopilotMetricsReport, *Response, error) {
+	u := fmt.Sprintf("enterprises/%v/copilot/metrics/reports/enterprise-28-day/latest", enterprise)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotMetricsReport
+	resp, err := s.client.Do(ctx, req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetEnterpriseUsersDailyMetricsReport gets a report containing Copilot user metrics for a single day for an enterprise.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-usage-metrics#get-copilot-users-usage-metrics-for-a-specific-day
+//
+//meta:operation GET /enterprises/{enterprise}/copilot/metrics/reports/users-1-day
+func (s *CopilotService) GetEnterpriseUsersDailyMetricsReport(ctx context.Context, enterprise string, opts *CopilotMetricsReportOptions) (*CopilotDailyMetricsReport, *Response, error) {
+	u := fmt.Sprintf("enterprises/%v/copilot/metrics/reports/users-1-day", enterprise)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotDailyMetricsReport
+	resp, err := s.client.Do(ctx, req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetEnterpriseUsersMetricsReport gets a report containing Copilot user metrics for a 28-day rolling window for an enterprise.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-usage-metrics#get-copilot-users-usage-metrics
+//
+//meta:operation GET /enterprises/{enterprise}/copilot/metrics/reports/users-28-day/latest
+func (s *CopilotService) GetEnterpriseUsersMetricsReport(ctx context.Context, enterprise string) (*CopilotMetricsReport, *Response, error) {
+	u := fmt.Sprintf("enterprises/%v/copilot/metrics/reports/users-28-day/latest", enterprise)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotMetricsReport
+	resp, err := s.client.Do(ctx, req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetOrganizationDailyMetricsReport gets a report containing Copilot metrics for a single day for an organization.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-usage-metrics#get-copilot-organization-usage-metrics-for-a-specific-day
+//
+//meta:operation GET /orgs/{org}/copilot/metrics/reports/organization-1-day
+func (s *CopilotService) GetOrganizationDailyMetricsReport(ctx context.Context, org string, opts *CopilotMetricsReportOptions) (*CopilotDailyMetricsReport, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot/metrics/reports/organization-1-day", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotDailyMetricsReport
+	resp, err := s.client.Do(ctx, req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetOrganizationMetricsReport gets a report containing Copilot metrics for a 28-day rolling window for an organization.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-usage-metrics#get-copilot-organization-usage-metrics
+//
+//meta:operation GET /orgs/{org}/copilot/metrics/reports/organization-28-day/latest
+func (s *CopilotService) GetOrganizationMetricsReport(ctx context.Context, org string) (*CopilotMetricsReport, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot/metrics/reports/organization-28-day/latest", org)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotMetricsReport
+	resp, err := s.client.Do(ctx, req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetOrganizationUsersDailyMetricsReport gets a report containing Copilot user metrics for a single day for an organization.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-usage-metrics#get-copilot-organization-users-usage-metrics-for-a-specific-day
+//
+//meta:operation GET /orgs/{org}/copilot/metrics/reports/users-1-day
+func (s *CopilotService) GetOrganizationUsersDailyMetricsReport(ctx context.Context, org string, opts *CopilotMetricsReportOptions) (*CopilotDailyMetricsReport, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot/metrics/reports/users-1-day", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotDailyMetricsReport
+	resp, err := s.client.Do(ctx, req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
+}
+
+// GetOrganizationUsersMetricsReport gets a report containing Copilot user metrics for a 28-day rolling window for an organization.
+//
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/copilot/copilot-usage-metrics#get-copilot-organization-users-usage-metrics
+//
+//meta:operation GET /orgs/{org}/copilot/metrics/reports/users-28-day/latest
+func (s *CopilotService) GetOrganizationUsersMetricsReport(ctx context.Context, org string) (*CopilotMetricsReport, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/copilot/metrics/reports/users-28-day/latest", org)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var report *CopilotMetricsReport
+	resp, err := s.client.Do(ctx, req, &report)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return report, resp, nil
 }

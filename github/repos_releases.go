@@ -45,6 +45,7 @@ type RepositoryRelease struct {
 	TarballURL  *string         `json:"tarball_url,omitempty"`
 	Author      *User           `json:"author,omitempty"`
 	NodeID      *string         `json:"node_id,omitempty"`
+	Immutable   *bool           `json:"immutable,omitempty"`
 }
 
 func (r RepositoryRelease) String() string {
@@ -59,9 +60,10 @@ type RepositoryReleaseNotes struct {
 
 // GenerateNotesOptions represents the options to generate release notes.
 type GenerateNotesOptions struct {
-	TagName         string  `json:"tag_name"`
-	PreviousTagName *string `json:"previous_tag_name,omitempty"`
-	TargetCommitish *string `json:"target_commitish,omitempty"`
+	TagName               string  `json:"tag_name"`
+	PreviousTagName       *string `json:"previous_tag_name,omitempty"`
+	TargetCommitish       *string `json:"target_commitish,omitempty"`
+	ConfigurationFilePath *string `json:"configuration_file_path,omitempty"`
 }
 
 // ReleaseAsset represents a GitHub release asset in a repository.
@@ -79,6 +81,7 @@ type ReleaseAsset struct {
 	BrowserDownloadURL *string    `json:"browser_download_url,omitempty"`
 	Uploader           *User      `json:"uploader,omitempty"`
 	NodeID             *string    `json:"node_id,omitempty"`
+	Digest             *string    `json:"digest,omitempty"`
 }
 
 func (r ReleaseAsset) String() string {
@@ -91,7 +94,7 @@ func (r ReleaseAsset) String() string {
 //
 //meta:operation GET /repos/{owner}/{repo}/releases
 func (s *RepositoriesService) ListReleases(ctx context.Context, owner, repo string, opts *ListOptions) ([]*RepositoryRelease, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/releases", owner, repo)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -116,7 +119,7 @@ func (s *RepositoriesService) ListReleases(ctx context.Context, owner, repo stri
 //
 //meta:operation GET /repos/{owner}/{repo}/releases/{release_id}
 func (s *RepositoriesService) GetRelease(ctx context.Context, owner, repo string, id int64) (*RepositoryRelease, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/%d", owner, repo, id)
+	u := fmt.Sprintf("repos/%v/%v/releases/%v", owner, repo, id)
 	return s.getSingleRelease(ctx, u)
 }
 
@@ -126,7 +129,7 @@ func (s *RepositoriesService) GetRelease(ctx context.Context, owner, repo string
 //
 //meta:operation GET /repos/{owner}/{repo}/releases/latest
 func (s *RepositoriesService) GetLatestRelease(ctx context.Context, owner, repo string) (*RepositoryRelease, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/latest", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/releases/latest", owner, repo)
 	return s.getSingleRelease(ctx, u)
 }
 
@@ -136,7 +139,7 @@ func (s *RepositoriesService) GetLatestRelease(ctx context.Context, owner, repo 
 //
 //meta:operation GET /repos/{owner}/{repo}/releases/tags/{tag}
 func (s *RepositoriesService) GetReleaseByTag(ctx context.Context, owner, repo, tag string) (*RepositoryRelease, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/tags/%s", owner, repo, tag)
+	u := fmt.Sprintf("repos/%v/%v/releases/tags/%v", owner, repo, tag)
 	return s.getSingleRelease(ctx, u)
 }
 
@@ -146,7 +149,7 @@ func (s *RepositoriesService) GetReleaseByTag(ctx context.Context, owner, repo, 
 //
 //meta:operation POST /repos/{owner}/{repo}/releases/generate-notes
 func (s *RepositoriesService) GenerateReleaseNotes(ctx context.Context, owner, repo string, opts *GenerateNotesOptions) (*RepositoryReleaseNotes, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/generate-notes", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/releases/generate-notes", owner, repo)
 	req, err := s.client.NewRequest("POST", u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -202,7 +205,11 @@ type repositoryReleaseRequest struct {
 //
 //meta:operation POST /repos/{owner}/{repo}/releases
 func (s *RepositoriesService) CreateRelease(ctx context.Context, owner, repo string, release *RepositoryRelease) (*RepositoryRelease, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases", owner, repo)
+	if release == nil {
+		return nil, nil, errors.New("release must be provided")
+	}
+
+	u := fmt.Sprintf("repos/%v/%v/releases", owner, repo)
 
 	releaseReq := &repositoryReleaseRequest{
 		TagName:                release.TagName,
@@ -238,7 +245,11 @@ func (s *RepositoriesService) CreateRelease(ctx context.Context, owner, repo str
 //
 //meta:operation PATCH /repos/{owner}/{repo}/releases/{release_id}
 func (s *RepositoriesService) EditRelease(ctx context.Context, owner, repo string, id int64, release *RepositoryRelease) (*RepositoryRelease, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/%d", owner, repo, id)
+	if release == nil {
+		return nil, nil, errors.New("release must be provided")
+	}
+
+	u := fmt.Sprintf("repos/%v/%v/releases/%v", owner, repo, id)
 
 	releaseReq := &repositoryReleaseRequest{
 		TagName:                release.TagName,
@@ -270,7 +281,7 @@ func (s *RepositoriesService) EditRelease(ctx context.Context, owner, repo strin
 //
 //meta:operation DELETE /repos/{owner}/{repo}/releases/{release_id}
 func (s *RepositoriesService) DeleteRelease(ctx context.Context, owner, repo string, id int64) (*Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/%d", owner, repo, id)
+	u := fmt.Sprintf("repos/%v/%v/releases/%v", owner, repo, id)
 
 	req, err := s.client.NewRequest("DELETE", u, nil)
 	if err != nil {
@@ -285,7 +296,7 @@ func (s *RepositoriesService) DeleteRelease(ctx context.Context, owner, repo str
 //
 //meta:operation GET /repos/{owner}/{repo}/releases/{release_id}/assets
 func (s *RepositoriesService) ListReleaseAssets(ctx context.Context, owner, repo string, id int64, opts *ListOptions) ([]*ReleaseAsset, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/%d/assets", owner, repo, id)
+	u := fmt.Sprintf("repos/%v/%v/releases/%v/assets", owner, repo, id)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -310,7 +321,7 @@ func (s *RepositoriesService) ListReleaseAssets(ctx context.Context, owner, repo
 //
 //meta:operation GET /repos/{owner}/{repo}/releases/assets/{asset_id}
 func (s *RepositoriesService) GetReleaseAsset(ctx context.Context, owner, repo string, id int64) (*ReleaseAsset, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/assets/%d", owner, repo, id)
+	u := fmt.Sprintf("repos/%v/%v/releases/assets/%v", owner, repo, id)
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
@@ -333,15 +344,16 @@ func (s *RepositoriesService) GetReleaseAsset(ctx context.Context, owner, repo s
 // of the io.ReadCloser. Exactly one of rc and redirectURL will be zero.
 //
 // followRedirectsClient can be passed to download the asset from a redirected
-// location. Passing http.DefaultClient is recommended unless special circumstances
-// exist, but it's possible to pass any http.Client. If nil is passed the
-// redirectURL will be returned instead.
+// location. Specifying any http.Client is possible, but passing http.DefaultClient
+// is recommended, except when the specified repository is private, in which case
+// it's necessary to pass an http.Client that performs authenticated requests.
+// If nil is passed the redirectURL will be returned instead.
 //
 // GitHub API docs: https://docs.github.com/rest/releases/assets#get-a-release-asset
 //
 //meta:operation GET /repos/{owner}/{repo}/releases/assets/{asset_id}
 func (s *RepositoriesService) DownloadReleaseAsset(ctx context.Context, owner, repo string, id int64, followRedirectsClient *http.Client) (rc io.ReadCloser, redirectURL string, err error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/assets/%d", owner, repo, id)
+	u := fmt.Sprintf("repos/%v/%v/releases/assets/%v", owner, repo, id)
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
@@ -354,7 +366,7 @@ func (s *RepositoriesService) DownloadReleaseAsset(ctx context.Context, owner, r
 
 	var loc string
 	saveRedirect := s.client.client.CheckRedirect
-	s.client.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+	s.client.client.CheckRedirect = func(req *http.Request, _ []*http.Request) error {
 		loc = req.URL.String()
 		return errors.New("disable redirect")
 	}
@@ -387,7 +399,7 @@ func (s *RepositoriesService) downloadReleaseAssetFromURL(ctx context.Context, f
 		return nil, err
 	}
 	req = withContext(ctx, req)
-	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept", defaultMediaType)
 	resp, err := followRedirectsClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -405,7 +417,7 @@ func (s *RepositoriesService) downloadReleaseAssetFromURL(ctx context.Context, f
 //
 //meta:operation PATCH /repos/{owner}/{repo}/releases/assets/{asset_id}
 func (s *RepositoriesService) EditReleaseAsset(ctx context.Context, owner, repo string, id int64, release *ReleaseAsset) (*ReleaseAsset, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/assets/%d", owner, repo, id)
+	u := fmt.Sprintf("repos/%v/%v/releases/assets/%v", owner, repo, id)
 
 	req, err := s.client.NewRequest("PATCH", u, release)
 	if err != nil {
@@ -426,7 +438,7 @@ func (s *RepositoriesService) EditReleaseAsset(ctx context.Context, owner, repo 
 //
 //meta:operation DELETE /repos/{owner}/{repo}/releases/assets/{asset_id}
 func (s *RepositoriesService) DeleteReleaseAsset(ctx context.Context, owner, repo string, id int64) (*Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/assets/%d", owner, repo, id)
+	u := fmt.Sprintf("repos/%v/%v/releases/assets/%v", owner, repo, id)
 
 	req, err := s.client.NewRequest("DELETE", u, nil)
 	if err != nil {
@@ -442,7 +454,11 @@ func (s *RepositoriesService) DeleteReleaseAsset(ctx context.Context, owner, rep
 //
 //meta:operation POST /repos/{owner}/{repo}/releases/{release_id}/assets
 func (s *RepositoriesService) UploadReleaseAsset(ctx context.Context, owner, repo string, id int64, opts *UploadOptions, file *os.File) (*ReleaseAsset, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/releases/%d/assets", owner, repo, id)
+	if file == nil {
+		return nil, nil, errors.New("file must be provided")
+	}
+
+	u := fmt.Sprintf("repos/%v/%v/releases/%v/assets", owner, repo, id)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -462,6 +478,79 @@ func (s *RepositoriesService) UploadReleaseAsset(ctx context.Context, owner, rep
 	}
 
 	req, err := s.client.NewUploadRequest(u, file, stat.Size(), mediaType)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	asset := new(ReleaseAsset)
+	resp, err := s.client.Do(ctx, req, asset)
+	if err != nil {
+		return nil, resp, err
+	}
+	return asset, resp, nil
+}
+
+// UploadReleaseAssetFromRelease uploads an asset using the UploadURL that's embedded
+// in a RepositoryRelease object.
+//
+// This is a convenience wrapper that extracts the release.UploadURL (which is usually
+// templated like "https://uploads.github.com/.../assets{?name,label}") and uploads
+// the provided data (reader + size) using the existing upload helpers.
+//
+// GitHub API docs: https://docs.github.com/rest/releases/assets#upload-a-release-asset
+//
+//meta:operation POST /repos/{owner}/{repo}/releases/{release_id}/assets
+func (s *RepositoriesService) UploadReleaseAssetFromRelease(
+	ctx context.Context,
+	release *RepositoryRelease,
+	opts *UploadOptions,
+	reader io.Reader,
+	size int64,
+) (*ReleaseAsset, *Response, error) {
+	if release == nil || release.UploadURL == nil {
+		return nil, nil, errors.New("release UploadURL must be provided")
+	}
+	if reader == nil {
+		return nil, nil, errors.New("reader must be provided")
+	}
+	if size < 0 {
+		return nil, nil, errors.New("size must be >= 0")
+	}
+
+	// Strip URI-template portion (e.g. "{?name,label}") if present.
+	uploadURL := *release.UploadURL
+	if idx := strings.Index(uploadURL, "{"); idx != -1 {
+		uploadURL = uploadURL[:idx]
+	}
+
+	// If this is a *relative* URL (no scheme), normalize it by trimming a leading "/"
+	// so it works with Client.BaseURL path prefixes (e.g. "/api-v3/").
+	if !strings.HasPrefix(uploadURL, "http://") && !strings.HasPrefix(uploadURL, "https://") {
+		uploadURL = strings.TrimPrefix(uploadURL, "/")
+	}
+
+	// addOptions will append name/label query params (same behavior as UploadReleaseAsset).
+	u, err := addOptions(uploadURL, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// determine media type
+	mediaType := defaultMediaType
+	if opts != nil {
+		switch {
+		case opts.MediaType != "":
+			mediaType = opts.MediaType
+		case opts.Name != "":
+			if ext := filepath.Ext(opts.Name); ext != "" {
+				if mt := mime.TypeByExtension(ext); mt != "" {
+					mediaType = mt
+				}
+			}
+		}
+	}
+
+	req, err := s.client.NewUploadRequest(u, reader, size, mediaType)
 	if err != nil {
 		return nil, nil, err
 	}

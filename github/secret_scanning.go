@@ -16,24 +16,34 @@ type SecretScanningService service
 
 // SecretScanningAlert represents a GitHub secret scanning alert.
 type SecretScanningAlert struct {
-	Number                   *int        `json:"number,omitempty"`
-	CreatedAt                *Timestamp  `json:"created_at,omitempty"`
-	URL                      *string     `json:"url,omitempty"`
-	HTMLURL                  *string     `json:"html_url,omitempty"`
-	LocationsURL             *string     `json:"locations_url,omitempty"`
-	State                    *string     `json:"state,omitempty"`
-	Resolution               *string     `json:"resolution,omitempty"`
-	ResolvedAt               *Timestamp  `json:"resolved_at,omitempty"`
-	ResolvedBy               *User       `json:"resolved_by,omitempty"`
-	SecretType               *string     `json:"secret_type,omitempty"`
-	SecretTypeDisplayName    *string     `json:"secret_type_display_name,omitempty"`
-	Secret                   *string     `json:"secret,omitempty"`
-	Repository               *Repository `json:"repository,omitempty"`
-	UpdatedAt                *Timestamp  `json:"updated_at,omitempty"`
-	PushProtectionBypassed   *bool       `json:"push_protection_bypassed,omitempty"`
-	PushProtectionBypassedBy *User       `json:"push_protection_bypassed_by,omitempty"`
-	PushProtectionBypassedAt *Timestamp  `json:"push_protection_bypassed_at,omitempty"`
-	ResolutionComment        *string     `json:"resolution_comment,omitempty"`
+	Number                                     *int                                `json:"number,omitempty"`
+	CreatedAt                                  *Timestamp                          `json:"created_at,omitempty"`
+	URL                                        *string                             `json:"url,omitempty"`
+	HTMLURL                                    *string                             `json:"html_url,omitempty"`
+	LocationsURL                               *string                             `json:"locations_url,omitempty"`
+	FirstLocationDetected                      *SecretScanningAlertLocationDetails `json:"first_location_detected,omitempty"`
+	HasMoreLocations                           *bool                               `json:"has_more_locations,omitempty"`
+	State                                      *string                             `json:"state,omitempty"`
+	Resolution                                 *string                             `json:"resolution,omitempty"`
+	ResolvedAt                                 *Timestamp                          `json:"resolved_at,omitempty"`
+	ResolvedBy                                 *User                               `json:"resolved_by,omitempty"`
+	SecretType                                 *string                             `json:"secret_type,omitempty"`
+	SecretTypeDisplayName                      *string                             `json:"secret_type_display_name,omitempty"`
+	Secret                                     *string                             `json:"secret,omitempty"`
+	Repository                                 *Repository                         `json:"repository,omitempty"`
+	UpdatedAt                                  *Timestamp                          `json:"updated_at,omitempty"`
+	IsBase64Encoded                            *bool                               `json:"is_base64_encoded,omitempty"`
+	MultiRepo                                  *bool                               `json:"multi_repo,omitempty"`
+	PubliclyLeaked                             *bool                               `json:"publicly_leaked,omitempty"`
+	PushProtectionBypassed                     *bool                               `json:"push_protection_bypassed,omitempty"`
+	PushProtectionBypassedBy                   *User                               `json:"push_protection_bypassed_by,omitempty"`
+	PushProtectionBypassedAt                   *Timestamp                          `json:"push_protection_bypassed_at,omitempty"`
+	ResolutionComment                          *string                             `json:"resolution_comment,omitempty"`
+	PushProtectionBypassRequestComment         *string                             `json:"push_protection_bypass_request_comment,omitempty"`
+	PushProtectionBypassRequestHTMLURL         *string                             `json:"push_protection_bypass_request_html_url,omitempty"`
+	PushProtectionBypassRequestReviewer        *User                               `json:"push_protection_bypass_request_reviewer,omitempty"`
+	PushProtectionBypassRequestReviewerComment *string                             `json:"push_protection_bypass_request_reviewer_comment,omitempty"`
+	Validity                                   *string                             `json:"validity,omitempty"`
 }
 
 // SecretScanningAlertLocation represents the location for a secret scanning alert.
@@ -68,6 +78,22 @@ type SecretScanningAlertListOptions struct {
 	// Valid resolutions are false_positive, wont_fix, revoked, pattern_edited, pattern_deleted or used_in_tests.
 	Resolution string `url:"resolution,omitempty"`
 
+	// A comma-separated list of validities that, when present, will return alerts that match the validities in this list.
+	// Valid options are active, inactive, and unknown.
+	Validity string `url:"validity,omitempty"`
+
+	// A boolean value representing whether or not to filter alerts by the publicly-leaked tag being present. Default: false.
+	IsPubliclyLeaked bool `url:"is_publicly_leaked,omitempty"`
+
+	// A boolean value representing whether or not to filter alerts by the multi-repo tag being present. Default: false.
+	IsMultiRepo bool `url:"is_multi_repo,omitempty"`
+
+	// The direction to sort the results by. Possible values are: asc, desc. Default: desc.
+	Direction string `url:"direction,omitempty"`
+
+	// The property by which to sort the results. Possible values are: created, updated. Default: created.
+	Sort string `url:"sort,omitempty"`
+
 	ListCursorOptions
 
 	// List options can vary on the Enterprise type.
@@ -89,6 +115,56 @@ type SecretScanningAlertUpdateOptions struct {
 	// Required when the state is "resolved" and represents the reason for resolving the alert.
 	// Can be one of: "false_positive", "wont_fix", "revoked", or "used_in_tests".
 	Resolution *string `json:"resolution,omitempty"`
+
+	// An optional comment when closing an alert.
+	ResolutionComment *string `json:"resolution_comment,omitempty"`
+}
+
+// PushProtectionBypassRequest represents the parameters for CreatePushProtectionBypass.
+type PushProtectionBypassRequest struct {
+	// The reason for bypassing push protection.
+	// Can be one of: false_positive, used_in_tests, will_fix_later
+	Reason string `json:"reason"`
+	// PlaceholderID is an identifier used for the bypass request.
+	// GitHub Secret Scanning provides you with a unique PlaceholderID associated with that specific blocked push.
+	PlaceholderID string `json:"placeholder_id"`
+}
+
+// PushProtectionBypass represents the response from CreatePushProtectionBypass.
+type PushProtectionBypass struct {
+	// The reason for bypassing push protection.
+	Reason string `json:"reason"`
+	// The time that the bypass will expire in ISO 8601 format.
+	ExpireAt *Timestamp `json:"expire_at"`
+	// The token type this bypass is for.
+	TokenType string `json:"token_type"`
+}
+
+// SecretsScan represents the common fields for a secret scanning scan.
+type SecretsScan struct {
+	Type        string     `json:"type"`
+	Status      string     `json:"status"`
+	CompletedAt *Timestamp `json:"completed_at,omitempty"`
+	StartedAt   *Timestamp `json:"started_at,omitempty"`
+}
+
+// CustomPatternBackfillScan represents a scan with an associated custom pattern.
+type CustomPatternBackfillScan struct {
+	SecretsScan
+	PatternSlug  *string `json:"pattern_slug,omitempty"`
+	PatternScope *string `json:"pattern_scope,omitempty"`
+}
+
+// SecretScanningScanHistory is the top-level struct for the secret scanning API response.
+type SecretScanningScanHistory struct {
+	// Information on incremental scan performed by secret scanning on the repository.
+	IncrementalScans []*SecretsScan `json:"incremental_scans,omitempty"`
+	// Information on backfill scan performed by secret scanning on the repository.
+	BackfillScans []*SecretsScan `json:"backfill_scans,omitempty"`
+	// Information on pattern update scan performed by secret scanning on the repository.
+	PatternUpdateScans []*SecretsScan `json:"pattern_update_scans,omitempty"`
+	// Information on custom pattern backfill scan performed by secret scanning on the repository.
+	CustomPatternBackfillScans []*CustomPatternBackfillScan `json:"custom_pattern_backfill_scans,omitempty"`
 }
 
 // ListAlertsForEnterprise lists secret scanning alerts for eligible repositories in an enterprise, from newest to oldest.
@@ -96,7 +172,7 @@ type SecretScanningAlertUpdateOptions struct {
 // To use this endpoint, you must be a member of the enterprise, and you must use an access token with the repo scope or
 // security_events scope. Alerts are only returned for organizations in the enterprise for which you are an organization owner or a security manager.
 //
-// GitHub API docs: https://docs.github.com/rest/secret-scanning/secret-scanning#list-secret-scanning-alerts-for-an-enterprise
+// GitHub API docs: https://docs.github.com/enterprise-cloud@latest/rest/secret-scanning/secret-scanning#list-secret-scanning-alerts-for-an-enterprise
 //
 //meta:operation GET /enterprises/{enterprise}/secret-scanning/alerts
 func (s *SecretScanningService) ListAlertsForEnterprise(ctx context.Context, enterprise string, opts *SecretScanningAlertListOptions) ([]*SecretScanningAlert, *Response, error) {
@@ -255,4 +331,53 @@ func (s *SecretScanningService) ListLocationsForAlert(ctx context.Context, owner
 	}
 
 	return locations, resp, nil
+}
+
+// CreatePushProtectionBypass creates a push protection bypass for a given repository.
+//
+// To use this endpoint, you must be an administrator for the repository or organization, and you must use an access token with
+// the repo scope or security_events scope.
+//
+// GitHub API docs: https://docs.github.com/rest/secret-scanning/secret-scanning#create-a-push-protection-bypass
+//
+//meta:operation POST /repos/{owner}/{repo}/secret-scanning/push-protection-bypasses
+func (s *SecretScanningService) CreatePushProtectionBypass(ctx context.Context, owner, repo string, request PushProtectionBypassRequest) (*PushProtectionBypass, *Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/secret-scanning/push-protection-bypasses", owner, repo)
+
+	req, err := s.client.NewRequest("POST", u, request)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var pushProtectionBypass *PushProtectionBypass
+	resp, err := s.client.Do(ctx, req, &pushProtectionBypass)
+	if err != nil {
+		return nil, resp, err
+	}
+	return pushProtectionBypass, resp, nil
+}
+
+// GetScanHistory fetches the secret scanning history for a given repository.
+//
+// To use this endpoint, you must be an administrator for the repository or organization, and you must use an access token with
+// the repo scope or security_events scope and gitHub advanced security or secret scanning must be enabled.
+//
+// GitHub API docs: https://docs.github.com/rest/secret-scanning/secret-scanning#get-secret-scanning-scan-history-for-a-repository
+//
+//meta:operation GET /repos/{owner}/{repo}/secret-scanning/scan-history
+func (s *SecretScanningService) GetScanHistory(ctx context.Context, owner, repo string) (*SecretScanningScanHistory, *Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/secret-scanning/scan-history", owner, repo)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var secretScanningHistory *SecretScanningScanHistory
+	resp, err := s.client.Do(ctx, req, &secretScanningHistory)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return secretScanningHistory, resp, nil
 }

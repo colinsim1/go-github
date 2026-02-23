@@ -53,7 +53,37 @@ type CreateWorkflowDispatchEventRequest struct {
 	// Inputs represents input keys and values configured in the workflow file.
 	// The maximum number of properties is 10.
 	// Default: Any default properties configured in the workflow file will be used when `inputs` are omitted.
-	Inputs map[string]interface{} `json:"inputs,omitempty"`
+	Inputs map[string]any `json:"inputs,omitempty"`
+}
+
+// WorkflowsPermissions represents the permissions for workflows in a repository.
+type WorkflowsPermissions struct {
+	RunWorkflowsFromForkPullRequests  *bool `json:"run_workflows_from_fork_pull_requests,omitempty"`
+	SendWriteTokensToWorkflows        *bool `json:"send_write_tokens_to_workflows,omitempty"`
+	SendSecretsAndVariables           *bool `json:"send_secrets_and_variables,omitempty"`
+	RequireApprovalForForkPRWorkflows *bool `json:"require_approval_for_fork_pr_workflows,omitempty"`
+}
+
+func (w WorkflowsPermissions) String() string {
+	return Stringify(w)
+}
+
+// WorkflowsPermissionsOpt specifies options for editing workflows permissions in a repository.
+type WorkflowsPermissionsOpt struct {
+	RunWorkflowsFromForkPullRequests  bool  `json:"run_workflows_from_fork_pull_requests"`
+	SendWriteTokensToWorkflows        *bool `json:"send_write_tokens_to_workflows,omitempty"`
+	SendSecretsAndVariables           *bool `json:"send_secrets_and_variables,omitempty"`
+	RequireApprovalForForkPRWorkflows *bool `json:"require_approval_for_fork_pr_workflows,omitempty"`
+}
+
+// ContributorApprovalPermissions represents the policy that controls
+// when fork PR workflows require approval from a maintainer.
+type ContributorApprovalPermissions struct {
+	ApprovalPolicy string `json:"approval_policy"`
+}
+
+func (p ContributorApprovalPermissions) String() string {
+	return Stringify(p)
 }
 
 // ListWorkflows lists all workflows in a repository.
@@ -62,7 +92,7 @@ type CreateWorkflowDispatchEventRequest struct {
 //
 //meta:operation GET /repos/{owner}/{repo}/actions/workflows
 func (s *ActionsService) ListWorkflows(ctx context.Context, owner, repo string, opts *ListOptions) (*Workflows, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/actions/workflows", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/actions/workflows", owner, repo)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err

@@ -8,7 +8,6 @@
 package integration
 
 import (
-	"context"
 	"testing"
 )
 
@@ -16,14 +15,16 @@ import (
 // Note: Org must be part of an enterprise.
 // Test requires auth - set env var GITHUB_AUTH_TOKEN.
 func TestOrganizationAuditLog(t *testing.T) {
+	skipIfMissingAuth(t)
+
 	org := "example_org"
-	entries, _, err := client.Organizations.GetAuditLog(context.Background(), org, nil)
+	entries, _, err := client.Organizations.GetAuditLog(t.Context(), org, nil)
 	if err != nil {
 		t.Fatalf("Organizations.GetAuditLog returned error: %v", err)
 	}
 
 	if len(entries) == 0 {
-		t.Errorf("No AuditLog events returned for org")
+		t.Error("No AuditLog events returned for org")
 	}
 
 	for _, e := range entries {

@@ -5,6 +5,10 @@ updates:
   schedule:
     interval: weekly
 - package-ecosystem: gomod
+  directory: otel
+  schedule:
+    interval: weekly
+- package-ecosystem: gomod
   directory: scrape
   schedule:
     interval: weekly
@@ -12,7 +16,15 @@ updates:
   directory: tools
   schedule:
     interval: weekly
+- package-ecosystem: gomod
+  directory: example
+  schedule:
+    interval: weekly
 - package-ecosystem: github-actions
   directory: /
   schedule:
     interval: weekly
+  groups:
+    actions:
+      patterns:
+      - "actions/*"

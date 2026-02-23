@@ -22,14 +22,12 @@ type Tag struct {
 	NodeID       *string                `json:"node_id,omitempty"`
 }
 
-// createTagRequest represents the body of a CreateTag request. This is mostly
-// identical to Tag with the exception that the object SHA and Type are
-// top-level fields, rather than being nested inside a JSON object.
-type createTagRequest struct {
-	Tag     *string       `json:"tag,omitempty"`
-	Message *string       `json:"message,omitempty"`
-	Object  *string       `json:"object,omitempty"`
-	Type    *string       `json:"type,omitempty"`
+// CreateTag represents the payload for creating a tag.
+type CreateTag struct {
+	Tag     string        `json:"tag,omitempty"`
+	Message string        `json:"message,omitempty"`
+	Object  string        `json:"object,omitempty"`
+	Type    string        `json:"type,omitempty"`
 	Tagger  *CommitAuthor `json:"tagger,omitempty"`
 }
 
@@ -38,7 +36,7 @@ type createTagRequest struct {
 // GitHub API docs: https://docs.github.com/rest/git/tags#get-a-tag
 //
 //meta:operation GET /repos/{owner}/{repo}/git/tags/{tag_sha}
-func (s *GitService) GetTag(ctx context.Context, owner string, repo string, sha string) (*Tag, *Response, error) {
+func (s *GitService) GetTag(ctx context.Context, owner, repo, sha string) (*Tag, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/git/tags/%v", owner, repo, sha)
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
@@ -59,21 +57,10 @@ func (s *GitService) GetTag(ctx context.Context, owner string, repo string, sha 
 // GitHub API docs: https://docs.github.com/rest/git/tags#create-a-tag-object
 //
 //meta:operation POST /repos/{owner}/{repo}/git/tags
-func (s *GitService) CreateTag(ctx context.Context, owner string, repo string, tag *Tag) (*Tag, *Response, error) {
+func (s *GitService) CreateTag(ctx context.Context, owner, repo string, tag CreateTag) (*Tag, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/git/tags", owner, repo)
 
-	// convert Tag into a createTagRequest
-	tagRequest := &createTagRequest{
-		Tag:     tag.Tag,
-		Message: tag.Message,
-		Tagger:  tag.Tagger,
-	}
-	if tag.Object != nil {
-		tagRequest.Object = tag.Object.SHA
-		tagRequest.Type = tag.Object.Type
-	}
-
-	req, err := s.client.NewRequest("POST", u, tagRequest)
+	req, err := s.client.NewRequest("POST", u, tag)
 	if err != nil {
 		return nil, nil, err
 	}

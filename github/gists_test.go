@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,43 +23,43 @@ func TestGist_Marshal(t *testing.T) {
 	updatedAt := time.Date(2010, time.February, 10, 10, 10, 0, 0, time.UTC)
 
 	u := &Gist{
-		ID:          String("i"),
-		Description: String("description"),
-		Public:      Bool(true),
+		ID:          Ptr("i"),
+		Description: Ptr("description"),
+		Public:      Ptr(true),
 		Owner: &User{
-			Login:       String("ll"),
-			ID:          Int64(123),
-			AvatarURL:   String("a"),
-			GravatarID:  String("g"),
-			Name:        String("n"),
-			Company:     String("c"),
-			Blog:        String("b"),
-			Location:    String("l"),
-			Email:       String("e"),
-			Hireable:    Bool(true),
-			PublicRepos: Int(1),
-			Followers:   Int(1),
-			Following:   Int(1),
+			Login:       Ptr("ll"),
+			ID:          Ptr(int64(123)),
+			AvatarURL:   Ptr("a"),
+			GravatarID:  Ptr("g"),
+			Name:        Ptr("n"),
+			Company:     Ptr("c"),
+			Blog:        Ptr("b"),
+			Location:    Ptr("l"),
+			Email:       Ptr("e"),
+			Hireable:    Ptr(true),
+			PublicRepos: Ptr(1),
+			Followers:   Ptr(1),
+			Following:   Ptr(1),
 			CreatedAt:   &Timestamp{referenceTime},
-			URL:         String("u"),
+			URL:         Ptr("u"),
 		},
 		Files: map[GistFilename]GistFile{
 			"gistfile.py": {
-				Size:     Int(167),
-				Filename: String("gistfile.py"),
-				Language: String("Python"),
-				Type:     String("application/x-python"),
-				RawURL:   String("raw-url"),
-				Content:  String("c"),
+				Size:     Ptr(167),
+				Filename: Ptr("gistfile.py"),
+				Language: Ptr("Python"),
+				Type:     Ptr("application/x-python"),
+				RawURL:   Ptr("raw-url"),
+				Content:  Ptr("c"),
 			},
 		},
-		Comments:   Int(1),
-		HTMLURL:    String("html-url"),
-		GitPullURL: String("gitpull-url"),
-		GitPushURL: String("gitpush-url"),
+		Comments:   Ptr(1),
+		HTMLURL:    Ptr("html-url"),
+		GitPullURL: Ptr("gitpull-url"),
+		GitPushURL: Ptr("gitpush-url"),
 		CreatedAt:  &Timestamp{createdAt},
 		UpdatedAt:  &Timestamp{updatedAt},
-		NodeID:     String("node"),
+		NodeID:     Ptr("node"),
 	}
 
 	want := `{
@@ -111,32 +110,32 @@ func TestGistCommit_Marshal(t *testing.T) {
 	testJSONMarshal(t, &GistCommit{}, "{}")
 
 	u := &GistCommit{
-		URL:     String("u"),
-		Version: String("v"),
+		URL:     Ptr("u"),
+		Version: Ptr("v"),
 		User: &User{
-			Login:       String("ll"),
-			ID:          Int64(123),
-			AvatarURL:   String("a"),
-			GravatarID:  String("g"),
-			Name:        String("n"),
-			Company:     String("c"),
-			Blog:        String("b"),
-			Location:    String("l"),
-			Email:       String("e"),
-			Hireable:    Bool(true),
-			PublicRepos: Int(1),
-			Followers:   Int(1),
-			Following:   Int(1),
+			Login:       Ptr("ll"),
+			ID:          Ptr(int64(123)),
+			AvatarURL:   Ptr("a"),
+			GravatarID:  Ptr("g"),
+			Name:        Ptr("n"),
+			Company:     Ptr("c"),
+			Blog:        Ptr("b"),
+			Location:    Ptr("l"),
+			Email:       Ptr("e"),
+			Hireable:    Ptr(true),
+			PublicRepos: Ptr(1),
+			Followers:   Ptr(1),
+			Following:   Ptr(1),
 			CreatedAt:   &Timestamp{referenceTime},
-			URL:         String("u"),
+			URL:         Ptr("u"),
 		},
 		ChangeStatus: &CommitStats{
-			Additions: Int(1),
-			Deletions: Int(1),
-			Total:     Int(2),
+			Additions: Ptr(1),
+			Deletions: Ptr(1),
+			Total:     Ptr(2),
 		},
 		CommittedAt: &Timestamp{referenceTime},
-		NodeID:      String("node"),
+		NodeID:      Ptr("node"),
 	}
 
 	want := `{
@@ -176,28 +175,28 @@ func TestGistFork_Marshal(t *testing.T) {
 	testJSONMarshal(t, &GistFork{}, "{}")
 
 	u := &GistFork{
-		URL: String("u"),
+		URL: Ptr("u"),
 		User: &User{
-			Login:       String("ll"),
-			ID:          Int64(123),
-			AvatarURL:   String("a"),
-			GravatarID:  String("g"),
-			Name:        String("n"),
-			Company:     String("c"),
-			Blog:        String("b"),
-			Location:    String("l"),
-			Email:       String("e"),
-			Hireable:    Bool(true),
-			PublicRepos: Int(1),
-			Followers:   Int(1),
-			Following:   Int(1),
+			Login:       Ptr("ll"),
+			ID:          Ptr(int64(123)),
+			AvatarURL:   Ptr("a"),
+			GravatarID:  Ptr("g"),
+			Name:        Ptr("n"),
+			Company:     Ptr("c"),
+			Blog:        Ptr("b"),
+			Location:    Ptr("l"),
+			Email:       Ptr("e"),
+			Hireable:    Ptr(true),
+			PublicRepos: Ptr(1),
+			Followers:   Ptr(1),
+			Following:   Ptr(1),
 			CreatedAt:   &Timestamp{referenceTime},
-			URL:         String("u"),
+			URL:         Ptr("u"),
 		},
-		ID:        String("id"),
+		ID:        Ptr("id"),
 		CreatedAt: &Timestamp{referenceTime},
 		UpdatedAt: &Timestamp{referenceTime},
-		NodeID:    String("node"),
+		NodeID:    Ptr("node"),
 	}
 
 	want := `{
@@ -243,13 +242,13 @@ func TestGistsService_List_specifiedUser(t *testing.T) {
 	})
 
 	opt := &GistListOptions{Since: time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC)}
-	ctx := context.Background()
+	ctx := t.Context()
 	gists, _, err := client.Gists.List(ctx, "u", opt)
 	if err != nil {
 		t.Errorf("Gists.List returned error: %v", err)
 	}
 
-	want := []*Gist{{ID: String("1")}}
+	want := []*Gist{{ID: Ptr("1")}}
 	if !cmp.Equal(gists, want) {
 		t.Errorf("Gists.List returned %+v, want %+v", gists, want)
 	}
@@ -278,13 +277,13 @@ func TestGistsService_List_authenticatedUser(t *testing.T) {
 		fmt.Fprint(w, `[{"id": "1"}]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gists, _, err := client.Gists.List(ctx, "", nil)
 	if err != nil {
 		t.Errorf("Gists.List returned error: %v", err)
 	}
 
-	want := []*Gist{{ID: String("1")}}
+	want := []*Gist{{ID: Ptr("1")}}
 	if !cmp.Equal(gists, want) {
 		t.Errorf("Gists.List returned %+v, want %+v", gists, want)
 	}
@@ -308,7 +307,7 @@ func TestGistsService_List_invalidUser(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Gists.List(ctx, "%", nil)
 	testURLParseError(t, err)
 }
@@ -328,13 +327,13 @@ func TestGistsService_ListAll(t *testing.T) {
 	})
 
 	opt := &GistListOptions{Since: time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC)}
-	ctx := context.Background()
+	ctx := t.Context()
 	gists, _, err := client.Gists.ListAll(ctx, opt)
 	if err != nil {
 		t.Errorf("Gists.ListAll returned error: %v", err)
 	}
 
-	want := []*Gist{{ID: String("1")}}
+	want := []*Gist{{ID: Ptr("1")}}
 	if !cmp.Equal(gists, want) {
 		t.Errorf("Gists.ListAll returned %+v, want %+v", gists, want)
 	}
@@ -364,13 +363,13 @@ func TestGistsService_ListStarred(t *testing.T) {
 	})
 
 	opt := &GistListOptions{Since: time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC)}
-	ctx := context.Background()
+	ctx := t.Context()
 	gists, _, err := client.Gists.ListStarred(ctx, opt)
 	if err != nil {
 		t.Errorf("Gists.ListStarred returned error: %v", err)
 	}
 
-	want := []*Gist{{ID: String("1")}}
+	want := []*Gist{{ID: Ptr("1")}}
 	if !cmp.Equal(gists, want) {
 		t.Errorf("Gists.ListStarred returned %+v, want %+v", gists, want)
 	}
@@ -394,13 +393,13 @@ func TestGistsService_Get(t *testing.T) {
 		fmt.Fprint(w, `{"id": "1"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gist, _, err := client.Gists.Get(ctx, "1")
 	if err != nil {
 		t.Errorf("Gists.Get returned error: %v", err)
 	}
 
-	want := &Gist{ID: String("1")}
+	want := &Gist{ID: Ptr("1")}
 	if !cmp.Equal(gist, want) {
 		t.Errorf("Gists.Get returned %+v, want %+v", gist, want)
 	}
@@ -424,7 +423,7 @@ func TestGistsService_Get_invalidID(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Gists.Get(ctx, "%")
 	testURLParseError(t, err)
 }
@@ -438,13 +437,13 @@ func TestGistsService_GetRevision(t *testing.T) {
 		fmt.Fprint(w, `{"id": "1"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gist, _, err := client.Gists.GetRevision(ctx, "1", "s")
 	if err != nil {
 		t.Errorf("Gists.Get returned error: %v", err)
 	}
 
-	want := &Gist{ID: String("1")}
+	want := &Gist{ID: Ptr("1")}
 	if !cmp.Equal(gist, want) {
 		t.Errorf("Gists.Get returned %+v, want %+v", gist, want)
 	}
@@ -468,7 +467,7 @@ func TestGistsService_GetRevision_invalidID(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Gists.GetRevision(ctx, "%", "%")
 	testURLParseError(t, err)
 }
@@ -478,10 +477,10 @@ func TestGistsService_Create(t *testing.T) {
 	client, mux, _ := setup(t)
 
 	input := &Gist{
-		Description: String("Gist description"),
-		Public:      Bool(false),
+		Description: Ptr("Gist description"),
+		Public:      Ptr(false),
 		Files: map[GistFilename]GistFile{
-			"test.txt": {Content: String("Gist file content")},
+			"test.txt": {Content: Ptr("Gist file content")},
 		},
 	}
 
@@ -508,18 +507,18 @@ func TestGistsService_Create(t *testing.T) {
 			}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gist, _, err := client.Gists.Create(ctx, input)
 	if err != nil {
 		t.Errorf("Gists.Create returned error: %v", err)
 	}
 
 	want := &Gist{
-		ID:          String("1"),
-		Description: String("Gist description"),
-		Public:      Bool(false),
+		ID:          Ptr("1"),
+		Description: Ptr("Gist description"),
+		Public:      Ptr(false),
 		Files: map[GistFilename]GistFile{
-			"test.txt": {Filename: String("test.txt")},
+			"test.txt": {Filename: Ptr("test.txt")},
 		},
 	}
 	if !cmp.Equal(gist, want) {
@@ -541,9 +540,9 @@ func TestGistsService_Edit(t *testing.T) {
 	client, mux, _ := setup(t)
 
 	input := &Gist{
-		Description: String("New description"),
+		Description: Ptr("New description"),
 		Files: map[GistFilename]GistFile{
-			"new.txt": {Content: String("new file content")},
+			"new.txt": {Content: Ptr("new file content")},
 		},
 	}
 
@@ -573,19 +572,19 @@ func TestGistsService_Edit(t *testing.T) {
 			}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gist, _, err := client.Gists.Edit(ctx, "1", input)
 	if err != nil {
 		t.Errorf("Gists.Edit returned error: %v", err)
 	}
 
 	want := &Gist{
-		ID:          String("1"),
-		Description: String("new description"),
-		Public:      Bool(false),
+		ID:          Ptr("1"),
+		Description: Ptr("new description"),
+		Public:      Ptr(false),
 		Files: map[GistFilename]GistFile{
-			"test.txt": {Filename: String("test.txt")},
-			"new.txt":  {Filename: String("new.txt")},
+			"test.txt": {Filename: Ptr("test.txt")},
+			"new.txt":  {Filename: Ptr("new.txt")},
 		},
 	}
 	if !cmp.Equal(gist, want) {
@@ -611,7 +610,7 @@ func TestGistsService_Edit_invalidID(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Gists.Edit(ctx, "%", nil)
 	testURLParseError(t, err)
 }
@@ -642,22 +641,23 @@ func TestGistsService_ListCommits(t *testing.T) {
 		`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gistCommits, _, err := client.Gists.ListCommits(ctx, "1", nil)
 	if err != nil {
 		t.Errorf("Gists.ListCommits returned error: %v", err)
 	}
 
 	want := []*GistCommit{{
-		URL:         String("https://api.github.com/gists/1/1"),
-		Version:     String("1"),
-		User:        &User{ID: Int64(1)},
-		CommittedAt: &Timestamp{time.Date(2010, time.January, 1, 00, 00, 00, 0, time.UTC)},
+		URL:         Ptr("https://api.github.com/gists/1/1"),
+		Version:     Ptr("1"),
+		User:        &User{ID: Ptr(int64(1))},
+		CommittedAt: &Timestamp{time.Date(2010, time.January, 1, 0, 0, 0, 0, time.UTC)},
 		ChangeStatus: &CommitStats{
-			Additions: Int(180),
-			Deletions: Int(0),
-			Total:     Int(180),
-		}}}
+			Additions: Ptr(180),
+			Deletions: Ptr(0),
+			Total:     Ptr(180),
+		},
+	}}
 
 	if !cmp.Equal(gistCommits, want) {
 		t.Errorf("Gists.ListCommits returned %+v, want %+v", gistCommits, want)
@@ -690,7 +690,7 @@ func TestGistsService_ListCommits_withOptions(t *testing.T) {
 		fmt.Fprint(w, `[]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Gists.ListCommits(ctx, "1", &ListOptions{Page: 2})
 	if err != nil {
 		t.Errorf("Gists.ListCommits returned error: %v", err)
@@ -715,7 +715,7 @@ func TestGistsService_ListCommits_invalidID(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Gists.ListCommits(ctx, "%", nil)
 	testURLParseError(t, err)
 }
@@ -724,11 +724,11 @@ func TestGistsService_Delete(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/gists/1", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/gists/1", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Gists.Delete(ctx, "1")
 	if err != nil {
 		t.Errorf("Gists.Delete returned error: %v", err)
@@ -749,7 +749,7 @@ func TestGistsService_Delete_invalidID(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Gists.Delete(ctx, "%")
 	testURLParseError(t, err)
 }
@@ -758,11 +758,11 @@ func TestGistsService_Star(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/gists/1/star", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/gists/1/star", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Gists.Star(ctx, "1")
 	if err != nil {
 		t.Errorf("Gists.Star returned error: %v", err)
@@ -783,7 +783,7 @@ func TestGistsService_Star_invalidID(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Gists.Star(ctx, "%")
 	testURLParseError(t, err)
 }
@@ -792,11 +792,11 @@ func TestGistsService_Unstar(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/gists/1/star", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/gists/1/star", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Gists.Unstar(ctx, "1")
 	if err != nil {
 		t.Errorf("Gists.Unstar returned error: %v", err)
@@ -817,7 +817,7 @@ func TestGistsService_Unstar_invalidID(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Gists.Unstar(ctx, "%")
 	testURLParseError(t, err)
 }
@@ -831,7 +831,7 @@ func TestGistsService_IsStarred_hasStar(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	star, _, err := client.Gists.IsStarred(ctx, "1")
 	if err != nil {
 		t.Errorf("Gists.Starred returned error: %v", err)
@@ -864,7 +864,7 @@ func TestGistsService_IsStarred_noStar(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	star, _, err := client.Gists.IsStarred(ctx, "1")
 	if err != nil {
 		t.Errorf("Gists.Starred returned error: %v", err)
@@ -892,7 +892,7 @@ func TestGistsService_IsStarred_invalidID(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Gists.IsStarred(ctx, "%")
 	testURLParseError(t, err)
 }
@@ -906,13 +906,13 @@ func TestGistsService_Fork(t *testing.T) {
 		fmt.Fprint(w, `{"id": "2"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gist, _, err := client.Gists.Fork(ctx, "1")
 	if err != nil {
 		t.Errorf("Gists.Fork returned error: %v", err)
 	}
 
-	want := &Gist{ID: String("2")}
+	want := &Gist{ID: Ptr("2")}
 	if !cmp.Equal(gist, want) {
 		t.Errorf("Gists.Fork returned %+v, want %+v", gist, want)
 	}
@@ -951,18 +951,19 @@ func TestGistsService_ListForks(t *testing.T) {
 		`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gistForks, _, err := client.Gists.ListForks(ctx, "1", nil)
 	if err != nil {
 		t.Errorf("Gists.ListForks returned error: %v", err)
 	}
 
 	want := []*GistFork{{
-		URL:       String("https://api.github.com/gists/1"),
-		ID:        String("1"),
-		User:      &User{ID: Int64(1)},
-		CreatedAt: &Timestamp{time.Date(2010, time.January, 1, 00, 00, 00, 0, time.UTC)},
-		UpdatedAt: &Timestamp{time.Date(2013, time.January, 1, 00, 00, 00, 0, time.UTC)}}}
+		URL:       Ptr("https://api.github.com/gists/1"),
+		ID:        Ptr("1"),
+		User:      &User{ID: Ptr(int64(1))},
+		CreatedAt: &Timestamp{time.Date(2010, time.January, 1, 0, 0, 0, 0, time.UTC)},
+		UpdatedAt: &Timestamp{time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC)},
+	}}
 
 	if !cmp.Equal(gistForks, want) {
 		t.Errorf("Gists.ListForks returned %+v, want %+v", gistForks, want)
@@ -995,7 +996,7 @@ func TestGistsService_ListForks_withOptions(t *testing.T) {
 		fmt.Fprint(w, `[]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	gistForks, _, err := client.Gists.ListForks(ctx, "1", &ListOptions{Page: 2})
 	if err != nil {
 		t.Errorf("Gists.ListForks returned error: %v", err)
@@ -1026,12 +1027,12 @@ func TestGistFile_Marshal(t *testing.T) {
 	testJSONMarshal(t, &GistFile{}, "{}")
 
 	u := &GistFile{
-		Size:     Int(1),
-		Filename: String("fn"),
-		Language: String("lan"),
-		Type:     String("type"),
-		RawURL:   String("rurl"),
-		Content:  String("con"),
+		Size:     Ptr(1),
+		Filename: Ptr("fn"),
+		Language: Ptr("lan"),
+		Type:     Ptr("type"),
+		RawURL:   Ptr("rurl"),
+		Content:  Ptr("con"),
 	}
 
 	want := `{

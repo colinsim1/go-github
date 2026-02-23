@@ -17,6 +17,7 @@ type ActionsPermissions struct {
 	EnabledRepositories *string `json:"enabled_repositories,omitempty"`
 	AllowedActions      *string `json:"allowed_actions,omitempty"`
 	SelectedActionsURL  *string `json:"selected_actions_url,omitempty"`
+	SHAPinningRequired  *bool   `json:"sha_pinning_required,omitempty"`
 }
 
 func (a ActionsPermissions) String() string {
@@ -50,6 +51,21 @@ type DefaultWorkflowPermissionOrganization struct {
 	CanApprovePullRequestReviews *bool   `json:"can_approve_pull_request_reviews,omitempty"`
 }
 
+// SelfHostedRunnersSettingsOrganization represents the self-hosted runners permissions settings for repositories in an organization.
+type SelfHostedRunnersSettingsOrganization struct {
+	EnabledRepositories     *string `json:"enabled_repositories,omitempty"`
+	SelectedRepositoriesURL *string `json:"selected_repositories_url,omitempty"`
+}
+
+func (s SelfHostedRunnersSettingsOrganization) String() string {
+	return Stringify(s)
+}
+
+// SelfHostedRunnersSettingsOrganizationOpt specifies the self-hosted runners permissions settings for repositories in an organization.
+type SelfHostedRunnersSettingsOrganizationOpt struct {
+	EnabledRepositories *string `json:"enabled_repositories,omitempty"`
+}
+
 // GetActionsPermissions gets the GitHub Actions permissions policy for repositories and allowed actions in an organization.
 //
 // GitHub API docs: https://docs.github.com/rest/actions/permissions#get-github-actions-permissions-for-an-organization
@@ -72,12 +88,12 @@ func (s *ActionsService) GetActionsPermissions(ctx context.Context, org string) 
 	return permissions, resp, nil
 }
 
-// EditActionsPermissions sets the permissions policy for repositories and allowed actions in an organization.
+// UpdateActionsPermissions sets the permissions policy for repositories and allowed actions in an organization.
 //
 // GitHub API docs: https://docs.github.com/rest/actions/permissions#set-github-actions-permissions-for-an-organization
 //
 //meta:operation PUT /orgs/{org}/actions/permissions
-func (s *ActionsService) EditActionsPermissions(ctx context.Context, org string, actionsPermissions ActionsPermissions) (*ActionsPermissions, *Response, error) {
+func (s *ActionsService) UpdateActionsPermissions(ctx context.Context, org string, actionsPermissions ActionsPermissions) (*ActionsPermissions, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/actions/permissions", org)
 	req, err := s.client.NewRequest("PUT", u, actionsPermissions)
 	if err != nil {
@@ -206,12 +222,12 @@ func (s *ActionsService) GetActionsAllowed(ctx context.Context, org string) (*Ac
 	return actionsAllowed, resp, nil
 }
 
-// EditActionsAllowed sets the actions that are allowed in an organization.
+// UpdateActionsAllowed sets the actions that are allowed in an organization.
 //
 // GitHub API docs: https://docs.github.com/rest/actions/permissions#set-allowed-actions-and-reusable-workflows-for-an-organization
 //
 //meta:operation PUT /orgs/{org}/actions/permissions/selected-actions
-func (s *ActionsService) EditActionsAllowed(ctx context.Context, org string, actionsAllowed ActionsAllowed) (*ActionsAllowed, *Response, error) {
+func (s *ActionsService) UpdateActionsAllowed(ctx context.Context, org string, actionsAllowed ActionsAllowed) (*ActionsAllowed, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/actions/permissions/selected-actions", org)
 	req, err := s.client.NewRequest("PUT", u, actionsAllowed)
 	if err != nil {
@@ -249,12 +265,12 @@ func (s *ActionsService) GetDefaultWorkflowPermissionsInOrganization(ctx context
 	return permissions, resp, nil
 }
 
-// EditDefaultWorkflowPermissionsInOrganization sets the GitHub Actions default workflow permissions for an organization.
+// UpdateDefaultWorkflowPermissionsInOrganization sets the GitHub Actions default workflow permissions for an organization.
 //
 // GitHub API docs: https://docs.github.com/rest/actions/permissions#set-default-workflow-permissions-for-an-organization
 //
 //meta:operation PUT /orgs/{org}/actions/permissions/workflow
-func (s *ActionsService) EditDefaultWorkflowPermissionsInOrganization(ctx context.Context, org string, permissions DefaultWorkflowPermissionOrganization) (*DefaultWorkflowPermissionOrganization, *Response, error) {
+func (s *ActionsService) UpdateDefaultWorkflowPermissionsInOrganization(ctx context.Context, org string, permissions DefaultWorkflowPermissionOrganization) (*DefaultWorkflowPermissionOrganization, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/actions/permissions/workflow", org)
 	req, err := s.client.NewRequest("PUT", u, permissions)
 	if err != nil {
@@ -268,4 +284,240 @@ func (s *ActionsService) EditDefaultWorkflowPermissionsInOrganization(ctx contex
 	}
 
 	return p, resp, nil
+}
+
+// GetArtifactAndLogRetentionPeriodInOrganization gets the artifact and log retention period for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#get-artifact-and-log-retention-settings-for-an-organization
+//
+//meta:operation GET /orgs/{org}/actions/permissions/artifact-and-log-retention
+func (s *ActionsService) GetArtifactAndLogRetentionPeriodInOrganization(ctx context.Context, org string) (*ArtifactPeriod, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/artifact-and-log-retention", org)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	arp := new(ArtifactPeriod)
+	resp, err := s.client.Do(ctx, req, arp)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return arp, resp, nil
+}
+
+// UpdateArtifactAndLogRetentionPeriodInOrganization sets the artifact and log retention period for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#set-artifact-and-log-retention-settings-for-an-organization
+//
+//meta:operation PUT /orgs/{org}/actions/permissions/artifact-and-log-retention
+func (s *ActionsService) UpdateArtifactAndLogRetentionPeriodInOrganization(ctx context.Context, org string, period ArtifactPeriodOpt) (*Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/artifact-and-log-retention", org)
+	req, err := s.client.NewRequest("PUT", u, period)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.Do(ctx, req, nil)
+}
+
+// GetSelfHostedRunnersSettingsInOrganization gets the self-hosted runners permissions settings for repositories in an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#get-self-hosted-runners-settings-for-an-organization
+//
+//meta:operation GET /orgs/{org}/actions/permissions/self-hosted-runners
+func (s *ActionsService) GetSelfHostedRunnersSettingsInOrganization(ctx context.Context, org string) (*SelfHostedRunnersSettingsOrganization, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/self-hosted-runners", org)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	settings := new(SelfHostedRunnersSettingsOrganization)
+	resp, err := s.client.Do(ctx, req, settings)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return settings, resp, nil
+}
+
+// UpdateSelfHostedRunnersSettingsInOrganization sets the self-hosted runners permissions settings for repositories in an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#set-self-hosted-runners-settings-for-an-organization
+//
+//meta:operation PUT /orgs/{org}/actions/permissions/self-hosted-runners
+func (s *ActionsService) UpdateSelfHostedRunnersSettingsInOrganization(ctx context.Context, org string, opt SelfHostedRunnersSettingsOrganizationOpt) (*Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/self-hosted-runners", org)
+
+	req, err := s.client.NewRequest("PUT", u, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.Do(ctx, req, nil)
+}
+
+// SelfHostedRunnersAllowedRepos represents the repositories that are allowed to use self-hosted runners in an organization.
+type SelfHostedRunnersAllowedRepos struct {
+	TotalCount   int           `json:"total_count"`
+	Repositories []*Repository `json:"repositories"`
+}
+
+// ListRepositoriesSelfHostedRunnersAllowedInOrganization lists the repositories that are allowed to use self-hosted runners in an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#list-repositories-allowed-to-use-self-hosted-runners-in-an-organization
+//
+//meta:operation GET /orgs/{org}/actions/permissions/self-hosted-runners/repositories
+func (s *ActionsService) ListRepositoriesSelfHostedRunnersAllowedInOrganization(ctx context.Context, org string, opts *ListOptions) (*SelfHostedRunnersAllowedRepos, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/self-hosted-runners/repositories", org)
+	u, err := addOptions(u, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	settings := new(SelfHostedRunnersAllowedRepos)
+	resp, err := s.client.Do(ctx, req, settings)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return settings, resp, nil
+}
+
+// SetRepositoriesSelfHostedRunnersAllowedInOrganization allows the list of repositories to use self-hosted runners in an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#set-repositories-allowed-to-use-self-hosted-runners-in-an-organization
+//
+//meta:operation PUT /orgs/{org}/actions/permissions/self-hosted-runners/repositories
+func (s *ActionsService) SetRepositoriesSelfHostedRunnersAllowedInOrganization(ctx context.Context, org string, repositoryIDs []int64) (*Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/self-hosted-runners/repositories", org)
+
+	req, err := s.client.NewRequest("PUT", u, struct {
+		IDs []int64 `json:"selected_repository_ids"`
+	}{IDs: repositoryIDs})
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.Do(ctx, req, nil)
+}
+
+// AddRepositorySelfHostedRunnersAllowedInOrganization adds a repository to the list of repositories that are allowed to use self-hosted runners in an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#add-a-repository-to-the-list-of-repositories-allowed-to-use-self-hosted-runners-in-an-organization
+//
+//meta:operation PUT /orgs/{org}/actions/permissions/self-hosted-runners/repositories/{repository_id}
+func (s *ActionsService) AddRepositorySelfHostedRunnersAllowedInOrganization(ctx context.Context, org string, repositoryID int64) (*Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/self-hosted-runners/repositories/%v", org, repositoryID)
+
+	req, err := s.client.NewRequest("PUT", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.Do(ctx, req, nil)
+}
+
+// RemoveRepositorySelfHostedRunnersAllowedInOrganization removes a repository from the list of repositories that are allowed to use self-hosted runners in an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#remove-a-repository-from-the-list-of-repositories-allowed-to-use-self-hosted-runners-in-an-organization
+//
+//meta:operation DELETE /orgs/{org}/actions/permissions/self-hosted-runners/repositories/{repository_id}
+func (s *ActionsService) RemoveRepositorySelfHostedRunnersAllowedInOrganization(ctx context.Context, org string, repositoryID int64) (*Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/self-hosted-runners/repositories/%v", org, repositoryID)
+
+	req, err := s.client.NewRequest("DELETE", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := s.client.Do(ctx, req, nil)
+	if err != nil {
+		return resp, err
+	}
+
+	return resp, nil
+}
+
+// GetPrivateRepoForkPRWorkflowSettingsInOrganization gets the settings for whether workflows from fork pull requests can run on private repositories in an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#get-private-repo-fork-pr-workflow-settings-for-an-organization
+//
+//meta:operation GET /orgs/{org}/actions/permissions/fork-pr-workflows-private-repos
+func (s *ActionsService) GetPrivateRepoForkPRWorkflowSettingsInOrganization(ctx context.Context, org string) (*WorkflowsPermissions, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/fork-pr-workflows-private-repos", org)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	permissions := new(WorkflowsPermissions)
+	resp, err := s.client.Do(ctx, req, permissions)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return permissions, resp, nil
+}
+
+// UpdatePrivateRepoForkPRWorkflowSettingsInOrganization sets the settings for whether workflows from fork pull requests can run on private repositories in an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#set-private-repo-fork-pr-workflow-settings-for-an-organization
+//
+//meta:operation PUT /orgs/{org}/actions/permissions/fork-pr-workflows-private-repos
+func (s *ActionsService) UpdatePrivateRepoForkPRWorkflowSettingsInOrganization(ctx context.Context, org string, permissions *WorkflowsPermissionsOpt) (*Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/fork-pr-workflows-private-repos", org)
+	req, err := s.client.NewRequest("PUT", u, permissions)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.Do(ctx, req, nil)
+}
+
+// GetOrganizationForkPRContributorApprovalPermissions gets the fork PR contributor approval policy for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#get-fork-pr-contributor-approval-permissions-for-an-organization
+//
+//meta:operation GET /orgs/{org}/actions/permissions/fork-pr-contributor-approval
+func (s *ActionsService) GetOrganizationForkPRContributorApprovalPermissions(ctx context.Context, org string) (*ContributorApprovalPermissions, *Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/fork-pr-contributor-approval", org)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	policy := new(ContributorApprovalPermissions)
+	resp, err := s.client.Do(ctx, req, policy)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return policy, resp, nil
+}
+
+// UpdateOrganizationForkPRContributorApprovalPermissions sets the fork PR contributor approval policy for an organization.
+//
+// GitHub API docs: https://docs.github.com/rest/actions/permissions#set-fork-pr-contributor-approval-permissions-for-an-organization
+//
+//meta:operation PUT /orgs/{org}/actions/permissions/fork-pr-contributor-approval
+func (s *ActionsService) UpdateOrganizationForkPRContributorApprovalPermissions(ctx context.Context, org string, policy ContributorApprovalPermissions) (*Response, error) {
+	u := fmt.Sprintf("orgs/%v/actions/permissions/fork-pr-contributor-approval", org)
+	req, err := s.client.NewRequest("PUT", u, policy)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.client.Do(ctx, req, nil)
 }

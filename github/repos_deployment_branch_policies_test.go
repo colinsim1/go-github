@@ -6,11 +6,11 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestRepositoriesService_ListDeploymentBranchPolicies(t *testing.T) {
@@ -18,29 +18,39 @@ func TestRepositoriesService_ListDeploymentBranchPolicies(t *testing.T) {
 	client, mux, _ := setup(t)
 
 	mux.HandleFunc("/repos/o/r/environments/e/deployment-branch-policies", func(w http.ResponseWriter, r *http.Request) {
+		testFormValues(t, r, values{
+			"page":     "1",
+			"per_page": "30",
+		})
 		fmt.Fprint(w, `{"total_count":2, "branch_policies":[{"id":1}, {"id": 2}]}`)
 	})
 
-	ctx := context.Background()
-	got, _, err := client.Repositories.ListDeploymentBranchPolicies(ctx, "o", "r", "e")
+	opts := &ListOptions{Page: 1, PerPage: 30}
+	ctx := t.Context()
+	got, _, err := client.Repositories.ListDeploymentBranchPolicies(ctx, "o", "r", "e", opts)
 	if err != nil {
 		t.Errorf("Repositories.ListDeploymentBranchPolicies returned error: %v", err)
 	}
 
 	want := &DeploymentBranchPolicyResponse{
 		BranchPolicies: []*DeploymentBranchPolicy{
-			{ID: Int64(1)},
-			{ID: Int64(2)},
+			{ID: Ptr(int64(1))},
+			{ID: Ptr(int64(2))},
 		},
-		TotalCount: Int(2),
+		TotalCount: Ptr(2),
 	}
-	if !reflect.DeepEqual(got, want) {
+	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.ListDeploymentBranchPolicies = %+v, want %+v", got, want)
 	}
 
 	const methodName = "ListDeploymentBranchPolicies"
+	testBadOptions(t, methodName, func() (err error) {
+		_, _, err = client.Repositories.ListDeploymentBranchPolicies(ctx, "\n", "\n", "\n", opts)
+		return err
+	})
+
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Repositories.ListDeploymentBranchPolicies(ctx, "o", "r", "e")
+		got, resp, err := client.Repositories.ListDeploymentBranchPolicies(ctx, "o", "r", "e", opts)
 		if got != nil {
 			t.Errorf("got non-nil Repositories.ListDeploymentBranchPolicies response: %+v", got)
 		}
@@ -52,18 +62,18 @@ func TestRepositoriesService_GetDeploymentBranchPolicy(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/environments/e/deployment-branch-policies/1", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/environments/e/deployment-branch-policies/1", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.GetDeploymentBranchPolicy(ctx, "o", "r", "e", 1)
 	if err != nil {
 		t.Errorf("Repositories.GetDeploymentBranchPolicy returned error: %v", err)
 	}
 
-	want := &DeploymentBranchPolicy{ID: Int64(1)}
-	if !reflect.DeepEqual(got, want) {
+	want := &DeploymentBranchPolicy{ID: Ptr(int64(1))}
+	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.GetDeploymentBranchPolicy = %+v, want %+v", got, want)
 	}
 
@@ -86,20 +96,20 @@ func TestRepositoriesService_CreateDeploymentBranchPolicy(t *testing.T) {
 		fmt.Fprint(w, `{"id":1, "type":"branch"}`)
 	})
 
-	ctx := context.Background()
-	got, _, err := client.Repositories.CreateDeploymentBranchPolicy(ctx, "o", "r", "e", &DeploymentBranchPolicyRequest{Name: String("n"), Type: String("branch")})
+	ctx := t.Context()
+	got, _, err := client.Repositories.CreateDeploymentBranchPolicy(ctx, "o", "r", "e", &DeploymentBranchPolicyRequest{Name: Ptr("n"), Type: Ptr("branch")})
 	if err != nil {
 		t.Errorf("Repositories.CreateDeploymentBranchPolicy returned error: %v", err)
 	}
 
-	want := &DeploymentBranchPolicy{ID: Int64(1), Type: String("branch")}
-	if !reflect.DeepEqual(got, want) {
+	want := &DeploymentBranchPolicy{ID: Ptr(int64(1)), Type: Ptr("branch")}
+	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.CreateDeploymentBranchPolicy = %+v, want %+v", got, want)
 	}
 
 	const methodName = "CreateDeploymentBranchPolicy"
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Repositories.CreateDeploymentBranchPolicy(ctx, "o", "r", "e", &DeploymentBranchPolicyRequest{Name: String("n")})
+		got, resp, err := client.Repositories.CreateDeploymentBranchPolicy(ctx, "o", "r", "e", &DeploymentBranchPolicyRequest{Name: Ptr("n")})
 		if got != nil {
 			t.Errorf("got non-nil Repositories.CreateDeploymentBranchPolicy response: %+v", got)
 		}
@@ -116,20 +126,20 @@ func TestRepositoriesService_UpdateDeploymentBranchPolicy(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
-	got, _, err := client.Repositories.UpdateDeploymentBranchPolicy(ctx, "o", "r", "e", 1, &DeploymentBranchPolicyRequest{Name: String("n")})
+	ctx := t.Context()
+	got, _, err := client.Repositories.UpdateDeploymentBranchPolicy(ctx, "o", "r", "e", 1, &DeploymentBranchPolicyRequest{Name: Ptr("n")})
 	if err != nil {
 		t.Errorf("Repositories.UpdateDeploymentBranchPolicy returned error: %v", err)
 	}
 
-	want := &DeploymentBranchPolicy{ID: Int64(1)}
-	if !reflect.DeepEqual(got, want) {
+	want := &DeploymentBranchPolicy{ID: Ptr(int64(1))}
+	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.UpdateDeploymentBranchPolicy = %+v, want %+v", got, want)
 	}
 
 	const methodName = "UpdateDeploymentBranchPolicy"
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.Repositories.UpdateDeploymentBranchPolicy(ctx, "o", "r", "e", 1, &DeploymentBranchPolicyRequest{Name: String("n")})
+		got, resp, err := client.Repositories.UpdateDeploymentBranchPolicy(ctx, "o", "r", "e", 1, &DeploymentBranchPolicyRequest{Name: Ptr("n")})
 		if got != nil {
 			t.Errorf("got non-nil Repositories.UpdateDeploymentBranchPolicy response: %+v", got)
 		}
@@ -141,11 +151,11 @@ func TestRepositoriesService_DeleteDeploymentBranchPolicy(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/environments/e/deployment-branch-policies/1", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/environments/e/deployment-branch-policies/1", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Repositories.DeleteDeploymentBranchPolicy(ctx, "o", "r", "e", 1)
 	if err != nil {
 		t.Errorf("Repositories.DeleteDeploymentBranchPolicy returned error: %v", err)

@@ -54,6 +54,9 @@ type SearchOptions struct {
 	// Whether to retrieve text match metadata with a query
 	TextMatch bool `url:"-"`
 
+	// Whether to enable advanced search for issues
+	AdvancedSearch *bool `url:"advanced_search,omitempty"`
+
 	ListOptions
 }
 
@@ -92,6 +95,7 @@ type TopicsSearchResult struct {
 	Topics            []*TopicResult `json:"items,omitempty"`
 }
 
+// TopicResult represents a topic search result.
 type TopicResult struct {
 	Name             *string    `json:"name,omitempty"`
 	DisplayName      *string    `json:"display_name,omitempty"`
@@ -300,7 +304,7 @@ func (s *SearchService) Labels(ctx context.Context, repoID int64, query string, 
 //
 // If searchParameters.Query includes multiple condition, it MUST NOT include "+" as condition separator.
 // For example, querying with "language:c++" and "leveldb", then searchParameters.Query should be "language:c++ leveldb" but not "language:c+++leveldb".
-func (s *SearchService) search(ctx context.Context, searchType string, parameters *searchParameters, opts *SearchOptions, result interface{}) (*Response, error) {
+func (s *SearchService) search(ctx context.Context, searchType string, parameters *searchParameters, opts *SearchOptions, result any) (*Response, error) {
 	params, err := qs.Values(opts)
 	if err != nil {
 		return nil, err
@@ -310,29 +314,22 @@ func (s *SearchService) search(ctx context.Context, searchType string, parameter
 		params.Set("repository_id", strconv.FormatInt(*parameters.RepositoryID, 10))
 	}
 	params.Set("q", parameters.Query)
-	u := fmt.Sprintf("search/%s?%s", searchType, params.Encode())
+	u := fmt.Sprintf("search/%v?%v", searchType, params.Encode())
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
 	}
 	var acceptHeaders []string
-	switch {
-	case searchType == "commits":
+	switch searchType {
+	case "commits":
 		// Accept header for search commits preview endpoint
-		// TODO: remove custom Accept header when this API fully launches.
 		acceptHeaders = append(acceptHeaders, mediaTypeCommitSearchPreview)
-	case searchType == "topics":
+	case "topics", "repositories":
 		// Accept header for search repositories based on topics preview endpoint
-		// TODO: remove custom Accept header when this API fully launches.
 		acceptHeaders = append(acceptHeaders, mediaTypeTopicsPreview)
-	case searchType == "repositories":
-		// Accept header for search repositories based on topics preview endpoint
-		// TODO: remove custom Accept header when this API fully launches.
-		acceptHeaders = append(acceptHeaders, mediaTypeTopicsPreview)
-	case searchType == "issues":
+	case "issues":
 		// Accept header for search issues based on reactions preview endpoint
-		// TODO: remove custom Accept header when this API fully launches.
 		acceptHeaders = append(acceptHeaders, mediaTypeReactionsPreview)
 	}
 	// https://docs.github.com/rest/search#search-repositories

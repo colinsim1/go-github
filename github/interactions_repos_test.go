@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,13 +24,13 @@ func TestInteractionsService_GetRestrictionsForRepo(t *testing.T) {
 		fmt.Fprint(w, `{"origin":"repository"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repoInteractions, _, err := client.Interactions.GetRestrictionsForRepo(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Interactions.GetRestrictionsForRepo returned error: %v", err)
 	}
 
-	want := &InteractionRestriction{Origin: String("repository")}
+	want := &InteractionRestriction{Origin: Ptr("repository")}
 	if !cmp.Equal(repoInteractions, want) {
 		t.Errorf("Interactions.GetRestrictionsForRepo returned %+v, want %+v", repoInteractions, want)
 	}
@@ -55,7 +54,7 @@ func TestInteractionsService_UpdateRestrictionsForRepo(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	input := &InteractionRestriction{Limit: String("existing_users")}
+	input := &InteractionRestriction{Limit: Ptr("existing_users")}
 
 	mux.HandleFunc("/repos/o/r/interaction-limits", func(w http.ResponseWriter, r *http.Request) {
 		v := new(InteractionRestriction)
@@ -69,13 +68,13 @@ func TestInteractionsService_UpdateRestrictionsForRepo(t *testing.T) {
 		fmt.Fprint(w, `{"origin":"repository"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repoInteractions, _, err := client.Interactions.UpdateRestrictionsForRepo(ctx, "o", "r", input.GetLimit())
 	if err != nil {
 		t.Errorf("Interactions.UpdateRestrictionsForRepo returned error: %v", err)
 	}
 
-	want := &InteractionRestriction{Origin: String("repository")}
+	want := &InteractionRestriction{Origin: Ptr("repository")}
 	if !cmp.Equal(repoInteractions, want) {
 		t.Errorf("Interactions.UpdateRestrictionsForRepo returned %+v, want %+v", repoInteractions, want)
 	}
@@ -99,12 +98,12 @@ func TestInteractionsService_RemoveRestrictionsFromRepo(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/interaction-limits", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/interaction-limits", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 		testHeader(t, r, "Accept", mediaTypeInteractionRestrictionsPreview)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Interactions.RemoveRestrictionsFromRepo(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Interactions.RemoveRestrictionsFromRepo returned error: %v", err)

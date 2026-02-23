@@ -53,6 +53,10 @@ type APIMeta struct {
 	Actions []string `json:"actions,omitempty"`
 
 	// An array of IP addresses in CIDR format specifying the IP addresses
+	// GitHub Action macOS runner will originate from.
+	ActionsMacos []string `json:"actions_macos,omitempty"`
+
+	// An array of IP addresses in CIDR format specifying the IP addresses
 	// Dependabot will originate from.
 	Dependabot []string `json:"dependabot,omitempty"`
 
@@ -129,7 +133,7 @@ func (c *Client) APIMeta(ctx context.Context) (*APIMeta, *Response, error) {
 func (s *MetaService) Octocat(ctx context.Context, message string) (string, *Response, error) {
 	u := "octocat"
 	if message != "" {
-		u = fmt.Sprintf("%s?s=%s", u, url.QueryEscape(message))
+		u = fmt.Sprintf("%v?s=%v", u, url.QueryEscape(message))
 	}
 
 	req, err := s.client.NewRequest("GET", u, nil)
@@ -156,7 +160,7 @@ func (c *Client) Octocat(ctx context.Context, message string) (string, *Response
 
 // Zen returns a random line from The Zen of GitHub.
 //
-// See also: http://warpspire.com/posts/taste/
+// See also: https://warpspire.com/posts/taste/
 //
 // GitHub API docs: https://docs.github.com/rest/meta/meta#get-the-zen-of-github
 //

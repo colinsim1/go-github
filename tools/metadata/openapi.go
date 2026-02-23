@@ -6,15 +6,16 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/google/go-github/v67/github"
+	"github.com/google/go-github/v83/github"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -66,7 +67,7 @@ func (o *openapiFile) loadDescription(ctx context.Context, client *github.Client
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("unexpected status code: %s", resp.Status)
+		return fmt.Errorf("unexpected status code: %v", resp.Status)
 	}
 	b, err := io.ReadAll(contents)
 	if err != nil {
@@ -78,20 +79,6 @@ func (o *openapiFile) loadDescription(ctx context.Context, client *github.Client
 	}
 	o.description, err = openapi3.NewLoader().LoadFromData(b)
 	return err
-}
-
-// less sorts by the following rules:
-//   - planIdx ascending
-//   - releaseMajor descending
-//   - releaseMinor descending
-func (o *openapiFile) less(other *openapiFile) bool {
-	if o.planIdx != other.planIdx {
-		return o.planIdx < other.planIdx
-	}
-	if o.releaseMajor != other.releaseMajor {
-		return o.releaseMajor > other.releaseMajor
-	}
-	return o.releaseMinor > other.releaseMinor
 }
 
 var dirPatterns = []*regexp.Regexp{
@@ -119,7 +106,7 @@ func getDescriptions(ctx context.Context, client *github.Client, gitRef string) 
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("unexpected status code: %s", resp.Status)
+		return nil, fmt.Errorf("unexpected status code: %v", resp.Status)
 	}
 	files := make([]*openapiFile, 0, len(dir))
 	for _, d := range dir {
@@ -129,7 +116,7 @@ func getDescriptions(ctx context.Context, client *github.Client, gitRef string) 
 				continue
 			}
 			file := openapiFile{
-				filename: fmt.Sprintf("descriptions/%s/%s.json", d.GetName(), d.GetName()),
+				filename: fmt.Sprintf("descriptions/%v/%v.json", d.GetName(), d.GetName()),
 				plan:     m[pattern.SubexpIndex("plan")],
 				planIdx:  i,
 			}
@@ -154,8 +141,16 @@ func getDescriptions(ctx context.Context, client *github.Client, gitRef string) 
 			break
 		}
 	}
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].less(files[j])
+	slices.SortFunc(files, func(a, b *openapiFile) int {
+		// sort by the following rules:
+		//   - planIdx ascending
+		//   - releaseMajor descending
+		//   - releaseMinor descending
+		return cmp.Or(
+			cmp.Compare(a.planIdx, b.planIdx),
+			cmp.Compare(b.releaseMajor, a.releaseMajor),
+			cmp.Compare(b.releaseMinor, a.releaseMinor),
+		)
 	})
 	g, ctx := errgroup.WithContext(ctx)
 	for _, file := range files {

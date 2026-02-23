@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -21,15 +20,15 @@ func TestRepositoriesService_GetActionsAccessLevel(t *testing.T) {
 
 	mux.HandleFunc("/repos/o/r/actions/permissions/access", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		fmt.Fprintf(w, `{"access_level": "none"}`)
+		fmt.Fprint(w, `{"access_level": "none"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	org, _, err := client.Repositories.GetActionsAccessLevel(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Repositories.GetActionsAccessLevel returned error: %v", err)
 	}
-	want := &RepositoryActionsAccessLevel{AccessLevel: String("none")}
+	want := &RepositoryActionsAccessLevel{AccessLevel: Ptr("none")}
 	if !cmp.Equal(org, want) {
 		t.Errorf("Repositories.GetActionsAccessLevel returned %+v, want %+v", org, want)
 	}
@@ -53,9 +52,9 @@ func TestRepositoriesService_EditActionsAccessLevel(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	input := &RepositoryActionsAccessLevel{AccessLevel: String("organization")}
+	input := &RepositoryActionsAccessLevel{AccessLevel: Ptr("organization")}
 
-	mux.HandleFunc("/repos/o/r/actions/permissions/access", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/actions/permissions/access", func(_ http.ResponseWriter, r *http.Request) {
 		v := new(RepositoryActionsAccessLevel)
 		assertNilError(t, json.NewDecoder(r.Body).Decode(v))
 
@@ -65,7 +64,7 @@ func TestRepositoriesService_EditActionsAccessLevel(t *testing.T) {
 		}
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Repositories.EditActionsAccessLevel(ctx, "o", "r", *input)
 	if err != nil {
 		t.Errorf("Repositories.EditActionsAccessLevel returned error: %v", err)
@@ -88,7 +87,7 @@ func TestRepositoryActionsAccessLevel_Marshal(t *testing.T) {
 	testJSONMarshal(t, &ActionsPermissions{}, "{}")
 
 	u := &RepositoryActionsAccessLevel{
-		AccessLevel: String("enterprise"),
+		AccessLevel: Ptr("enterprise"),
 	}
 
 	want := `{

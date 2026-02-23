@@ -55,6 +55,14 @@ type MigrationOptions struct {
 	// ExcludeAttachments indicates whether attachments should be excluded from
 	// the migration (to reduce migration archive file size).
 	ExcludeAttachments bool
+
+	// ExcludeReleases indicates whether releases should be excluded from
+	// the migration (to reduce migration archive file size).
+	ExcludeReleases bool
+
+	// Exclude is a slice of related items to exclude from the response in order
+	// to improve performance of the request. Supported values are: "repositories"
+	Exclude []string
 }
 
 // startMigration represents the body of a StartMigration request.
@@ -69,6 +77,14 @@ type startMigration struct {
 	// ExcludeAttachments indicates whether attachments should be excluded from
 	// the migration (to reduce migration archive file size).
 	ExcludeAttachments *bool `json:"exclude_attachments,omitempty"`
+
+	// ExcludeReleases indicates whether releases should be excluded from
+	// the migration (to reduce migration archive file size).
+	ExcludeReleases *bool `json:"exclude_releases,omitempty"`
+
+	// Exclude is a slice of related items to exclude from the response in order
+	// to improve performance of the request. Supported values are: "repositories"
+	Exclude []string `json:"exclude,omitempty"`
 }
 
 // StartMigration starts the generation of a migration archive.
@@ -82,8 +98,10 @@ func (s *MigrationService) StartMigration(ctx context.Context, org string, repos
 
 	body := &startMigration{Repositories: repos}
 	if opts != nil {
-		body.LockRepositories = Bool(opts.LockRepositories)
-		body.ExcludeAttachments = Bool(opts.ExcludeAttachments)
+		body.LockRepositories = Ptr(opts.LockRepositories)
+		body.ExcludeAttachments = Ptr(opts.ExcludeAttachments)
+		body.ExcludeReleases = Ptr(opts.ExcludeReleases)
+		body.Exclude = append(body.Exclude, opts.Exclude...)
 	}
 
 	req, err := s.client.NewRequest("POST", u, body)
@@ -91,7 +109,6 @@ func (s *MigrationService) StartMigration(ctx context.Context, org string, repos
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeMigrationsPreview)
 
 	m := &Migration{}
@@ -120,7 +137,6 @@ func (s *MigrationService) ListMigrations(ctx context.Context, org string, opts 
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeMigrationsPreview)
 
 	var m []*Migration
@@ -146,7 +162,6 @@ func (s *MigrationService) MigrationStatus(ctx context.Context, org string, id i
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeMigrationsPreview)
 
 	m := &Migration{}
@@ -172,7 +187,6 @@ func (s *MigrationService) MigrationArchiveURL(ctx context.Context, org string, 
 		return "", err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeMigrationsPreview)
 
 	s.client.clientMu.Lock()
@@ -181,7 +195,7 @@ func (s *MigrationService) MigrationArchiveURL(ctx context.Context, org string, 
 	// Disable the redirect mechanism because AWS fails if the GitHub auth token is provided.
 	var loc string
 	saveRedirect := s.client.client.CheckRedirect
-	s.client.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+	s.client.client.CheckRedirect = func(req *http.Request, _ []*http.Request) error {
 		loc = req.URL.String()
 		return errors.New("disable redirect")
 	}
@@ -211,7 +225,6 @@ func (s *MigrationService) DeleteMigration(ctx context.Context, org string, id i
 		return nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeMigrationsPreview)
 
 	return s.client.Do(ctx, req, nil)
@@ -233,7 +246,6 @@ func (s *MigrationService) UnlockRepo(ctx context.Context, org string, id int64,
 		return nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeMigrationsPreview)
 
 	return s.client.Do(ctx, req, nil)

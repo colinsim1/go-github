@@ -9,24 +9,37 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strconv"
+	"sync"
 )
 
-var timestampType = reflect.TypeOf(Timestamp{})
+var timestampType = reflect.TypeFor[Timestamp]()
+
+var bufferPool = sync.Pool{
+	New: func() any {
+		return new(bytes.Buffer)
+	},
+}
 
 // Stringify attempts to create a reasonable string representation of types in
 // the GitHub library. It does things like resolve pointers to their values
 // and omits struct fields with nil values.
-func Stringify(message interface{}) string {
-	var buf bytes.Buffer
+func Stringify(message any) string {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	defer func() {
+		buf.Reset()
+		bufferPool.Put(buf)
+	}()
+
 	v := reflect.ValueOf(message)
-	stringifyValue(&buf, v)
+	stringifyValue(buf, v)
 	return buf.String()
 }
 
 // stringifyValue was heavily inspired by the goprotobuf library.
 
 func stringifyValue(w *bytes.Buffer, val reflect.Value) {
-	if val.Kind() == reflect.Ptr && val.IsNil() {
+	if val.Kind() == reflect.Pointer && val.IsNil() {
 		w.WriteString("<nil>")
 		return
 	}
@@ -34,11 +47,23 @@ func stringifyValue(w *bytes.Buffer, val reflect.Value) {
 	v := reflect.Indirect(val)
 
 	switch v.Kind() {
+	case reflect.Bool:
+		w.Write(strconv.AppendBool(w.Bytes(), v.Bool())[w.Len():])
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		w.Write(strconv.AppendInt(w.Bytes(), v.Int(), 10)[w.Len():])
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		w.Write(strconv.AppendUint(w.Bytes(), v.Uint(), 10)[w.Len():])
+	case reflect.Float32:
+		w.Write(strconv.AppendFloat(w.Bytes(), v.Float(), 'g', -1, 32)[w.Len():])
+	case reflect.Float64:
+		w.Write(strconv.AppendFloat(w.Bytes(), v.Float(), 'g', -1, 64)[w.Len():])
 	case reflect.String:
-		fmt.Fprintf(w, `"%s"`, v)
+		w.WriteByte('"')
+		w.WriteString(v.String())
+		w.WriteByte('"')
 	case reflect.Slice:
 		w.WriteByte('[')
-		for i := 0; i < v.Len(); i++ {
+		for i := range v.Len() {
 			if i > 0 {
 				w.WriteByte(' ')
 			}
@@ -55,16 +80,16 @@ func stringifyValue(w *bytes.Buffer, val reflect.Value) {
 
 		// special handling of Timestamp values
 		if v.Type() == timestampType {
-			fmt.Fprintf(w, "{%s}", v.Interface())
+			fmt.Fprintf(w, "{%v}", v.Interface())
 			return
 		}
 
 		w.WriteByte('{')
 
 		var sep bool
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			fv := v.Field(i)
-			if fv.Kind() == reflect.Ptr && fv.IsNil() {
+			if fv.Kind() == reflect.Pointer && fv.IsNil() {
 				continue
 			}
 			if fv.Kind() == reflect.Slice && fv.IsNil() {

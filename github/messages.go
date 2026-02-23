@@ -19,11 +19,12 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"maps"
 	"mime"
 	"net/http"
 	"net/url"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -45,7 +46,7 @@ const (
 
 var (
 	// eventTypeMapping maps webhooks types to their corresponding go-github struct types.
-	eventTypeMapping = map[string]interface{}{
+	eventTypeMapping = map[string]any{
 		"branch_protection_configuration": &BranchProtectionConfigurationEvent{},
 		"branch_protection_rule":          &BranchProtectionRuleEvent{},
 		"check_run":                       &CheckRunEvent{},
@@ -54,6 +55,8 @@ var (
 		"commit_comment":                  &CommitCommentEvent{},
 		"content_reference":               &ContentReferenceEvent{},
 		"create":                          &CreateEvent{},
+		"custom_property":                 &CustomPropertyEvent{},
+		"custom_property_values":          &CustomPropertyValuesEvent{},
 		"delete":                          &DeleteEvent{},
 		"dependabot_alert":                &DependabotAlertEvent{},
 		"deploy_key":                      &DeployKeyEvent{},
@@ -84,9 +87,6 @@ var (
 		"page_build":                      &PageBuildEvent{},
 		"personal_access_token_request":   &PersonalAccessTokenRequestEvent{},
 		"ping":                            &PingEvent{},
-		"project":                         &ProjectEvent{},
-		"project_card":                    &ProjectCardEvent{},
-		"project_column":                  &ProjectColumnEvent{},
 		"projects_v2":                     &ProjectV2Event{},
 		"projects_v2_item":                &ProjectV2ItemEvent{},
 		"public":                          &PublicEvent{},
@@ -96,6 +96,7 @@ var (
 		"pull_request_review_thread":      &PullRequestReviewThreadEvent{},
 		"pull_request_target":             &PullRequestTargetEvent{},
 		"push":                            &PushEvent{},
+		"registry_package":                &RegistryPackageEvent{},
 		"repository":                      &RepositoryEvent{},
 		"repository_dispatch":             &RepositoryDispatchEvent{},
 		"repository_import":               &RepositoryImportEvent{},
@@ -186,11 +187,11 @@ func messageMAC(signature string) ([]byte, func() hash.Hash, error) {
 // Example usage:
 //
 //	func (s *GitHubEventMonitor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-//	  // read signature from request
-//	  signature := ""
-//	  payload, err := github.ValidatePayloadFromBody(r.Header.Get("Content-Type"), r.Body, signature, s.webhookSecretKey)
-//	  if err != nil { ... }
-//	  // Process payload...
+//		// read signature from request
+//		signature := ""
+//		payload, err := github.ValidatePayloadFromBody(r.Header.Get("Content-Type"), r.Body, signature, s.webhookSecretKey)
+//		if err != nil { ... }
+//		// Process payload...
 //	}
 func ValidatePayloadFromBody(contentType string, readable io.Reader, signature string, secretToken []byte) (payload []byte, err error) {
 	var body []byte // Raw body that GitHub uses to calculate the signature.
@@ -249,9 +250,9 @@ func ValidatePayloadFromBody(contentType string, readable io.Reader, signature s
 // Example usage:
 //
 //	func (s *GitHubEventMonitor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-//	  payload, err := github.ValidatePayload(r, s.webhookSecretKey)
-//	  if err != nil { ... }
-//	  // Process payload...
+//		payload, err := github.ValidatePayload(r, s.webhookSecretKey)
+//		if err != nil { ... }
+//		// Process payload...
 //	}
 func ValidatePayload(r *http.Request, secretToken []byte) (payload []byte, err error) {
 	signature := r.Header.Get(SHA256SignatureHeader)
@@ -300,25 +301,25 @@ func DeliveryID(r *http.Request) string {
 
 // ParseWebHook parses the event payload. For recognized event types, a
 // value of the corresponding struct type will be returned (as returned
-// by Event.ParsePayload()). An error will be returned for unrecognized event
+// by [Event.ParsePayload]). An error will be returned for unrecognized event
 // types.
 //
 // Example usage:
 //
 //	func (s *GitHubEventMonitor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-//	  payload, err := github.ValidatePayload(r, s.webhookSecretKey)
-//	  if err != nil { ... }
-//	  event, err := github.ParseWebHook(github.WebHookType(r), payload)
-//	  if err != nil { ... }
-//	  switch event := event.(type) {
-//	  case *github.CommitCommentEvent:
-//	      processCommitCommentEvent(event)
-//	  case *github.CreateEvent:
-//	      processCreateEvent(event)
-//	  ...
-//	  }
+//		payload, err := github.ValidatePayload(r, s.webhookSecretKey)
+//		if err != nil { ... }
+//		event, err := github.ParseWebHook(github.WebHookType(r), payload)
+//		if err != nil { ... }
+//		switch event := event.(type) {
+//		case *github.CommitCommentEvent:
+//			processCommitCommentEvent(event)
+//		case *github.CreateEvent:
+//			processCreateEvent(event)
+//		...
+//		}
 //	}
-func ParseWebHook(messageType string, payload []byte) (interface{}, error) {
+func ParseWebHook(messageType string, payload []byte) (any, error) {
 	eventType, ok := messageToTypeName[messageType]
 	if !ok {
 		return nil, fmt.Errorf("unknown X-Github-Event in message: %v", messageType)
@@ -334,17 +335,12 @@ func ParseWebHook(messageType string, payload []byte) (interface{}, error) {
 // MessageTypes returns a sorted list of all the known GitHub event type strings
 // supported by go-github.
 func MessageTypes() []string {
-	types := make([]string, 0, len(eventTypeMapping))
-	for t := range eventTypeMapping {
-		types = append(types, t)
-	}
-	sort.Strings(types)
-	return types
+	return slices.Sorted(maps.Keys(eventTypeMapping))
 }
 
 // EventForType returns an empty struct matching the specified GitHub event type.
 // If messageType does not match any known event types, it returns nil.
-func EventForType(messageType string) interface{} {
+func EventForType(messageType string) any {
 	prototype := eventTypeMapping[messageType]
 	if prototype == nil {
 		return nil

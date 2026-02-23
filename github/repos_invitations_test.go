@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -21,17 +20,17 @@ func TestRepositoriesService_ListInvitations(t *testing.T) {
 	mux.HandleFunc("/repos/o/r/invitations", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		testFormValues(t, r, values{"page": "2"})
-		fmt.Fprintf(w, `[{"id":1}, {"id":2}]`)
+		fmt.Fprint(w, `[{"id":1}, {"id":2}]`)
 	})
 
 	opt := &ListOptions{Page: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.ListInvitations(ctx, "o", "r", opt)
 	if err != nil {
 		t.Errorf("Repositories.ListInvitations returned error: %v", err)
 	}
 
-	want := []*RepositoryInvitation{{ID: Int64(1)}, {ID: Int64(2)}}
+	want := []*RepositoryInvitation{{ID: Ptr(int64(1))}, {ID: Ptr(int64(2))}}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.ListInvitations = %+v, want %+v", got, want)
 	}
@@ -60,7 +59,7 @@ func TestRepositoriesService_DeleteInvitation(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Repositories.DeleteInvitation(ctx, "o", "r", 2)
 	if err != nil {
 		t.Errorf("Repositories.DeleteInvitation returned error: %v", err)
@@ -83,16 +82,16 @@ func TestRepositoriesService_UpdateInvitation(t *testing.T) {
 
 	mux.HandleFunc("/repos/o/r/invitations/2", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PATCH")
-		fmt.Fprintf(w, `{"id":1}`)
+		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Repositories.UpdateInvitation(ctx, "o", "r", 2, "write")
 	if err != nil {
 		t.Errorf("Repositories.UpdateInvitation returned error: %v", err)
 	}
 
-	want := &RepositoryInvitation{ID: Int64(1)}
+	want := &RepositoryInvitation{ID: Ptr(int64(1))}
 	if !cmp.Equal(got, want) {
 		t.Errorf("Repositories.UpdateInvitation = %+v, want %+v", got, want)
 	}
@@ -117,26 +116,26 @@ func TestRepositoryInvitation_Marshal(t *testing.T) {
 	testJSONMarshal(t, &RepositoryInvitation{}, "{}")
 
 	r := &RepositoryInvitation{
-		ID: Int64(1),
+		ID: Ptr(int64(1)),
 		Repo: &Repository{
-			ID:   Int64(1),
-			Name: String("n"),
-			URL:  String("u"),
+			ID:   Ptr(int64(1)),
+			Name: Ptr("n"),
+			URL:  Ptr("u"),
 		},
 		Invitee: &User{
-			ID:   Int64(1),
-			Name: String("n"),
-			URL:  String("u"),
+			ID:   Ptr(int64(1)),
+			Name: Ptr("n"),
+			URL:  Ptr("u"),
 		},
 		Inviter: &User{
-			ID:   Int64(1),
-			Name: String("n"),
-			URL:  String("u"),
+			ID:   Ptr(int64(1)),
+			Name: Ptr("n"),
+			URL:  Ptr("u"),
 		},
-		Permissions: String("p"),
+		Permissions: Ptr("p"),
 		CreatedAt:   &Timestamp{referenceTime},
-		URL:         String("u"),
-		HTMLURL:     String("h"),
+		URL:         Ptr("u"),
+		HTMLURL:     Ptr("h"),
 	}
 
 	want := `{

@@ -7,7 +7,6 @@ package github
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -29,15 +28,15 @@ func TestGitService_GetBlob(t *testing.T) {
 			}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	blob, _, err := client.Git.GetBlob(ctx, "o", "r", "s")
 	if err != nil {
 		t.Errorf("Git.GetBlob returned error: %v", err)
 	}
 
 	want := Blob{
-		SHA:     String("s"),
-		Content: String("blob content"),
+		SHA:     Ptr("s"),
+		Content: Ptr("blob content"),
 	}
 
 	if !cmp.Equal(*blob, want) {
@@ -63,7 +62,7 @@ func TestGitService_GetBlob_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Git.GetBlob(ctx, "%", "%", "%")
 	testURLParseError(t, err)
 }
@@ -79,7 +78,7 @@ func TestGitService_GetBlobRaw(t *testing.T) {
 		fmt.Fprint(w, `raw contents here`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	blob, _, err := client.Git.GetBlobRaw(ctx, "o", "r", "s")
 	if err != nil {
 		t.Errorf("Git.GetBlobRaw returned error: %v", err)
@@ -109,11 +108,11 @@ func TestGitService_CreateBlob(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	input := &Blob{
-		SHA:      String("s"),
-		Content:  String("blob content"),
-		Encoding: String("utf-8"),
-		Size:     Int(12),
+	input := Blob{
+		SHA:      Ptr("s"),
+		Content:  Ptr("blob content"),
+		Encoding: Ptr("utf-8"),
+		Size:     Ptr(12),
 	}
 
 	mux.HandleFunc("/repos/o/r/git/blobs", func(w http.ResponseWriter, r *http.Request) {
@@ -123,8 +122,8 @@ func TestGitService_CreateBlob(t *testing.T) {
 		testMethod(t, r, "POST")
 
 		want := input
-		if !cmp.Equal(v, want) {
-			t.Errorf("Git.CreateBlob request body: %+v, want %+v", v, want)
+		if !cmp.Equal(*v, want) {
+			t.Errorf("Git.CreateBlob request body: %+v, want %+v", *v, want)
 		}
 
 		fmt.Fprint(w, `{
@@ -135,7 +134,7 @@ func TestGitService_CreateBlob(t *testing.T) {
 		}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	blob, _, err := client.Git.CreateBlob(ctx, "o", "r", input)
 	if err != nil {
 		t.Errorf("Git.CreateBlob returned error: %v", err)
@@ -143,8 +142,8 @@ func TestGitService_CreateBlob(t *testing.T) {
 
 	want := input
 
-	if !cmp.Equal(*blob, *want) {
-		t.Errorf("Git.CreateBlob returned %+v, want %+v", *blob, *want)
+	if !cmp.Equal(*blob, want) {
+		t.Errorf("Git.CreateBlob returned %+v, want %+v", *blob, want)
 	}
 
 	const methodName = "CreateBlob"
@@ -166,8 +165,8 @@ func TestGitService_CreateBlob_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
-	_, _, err := client.Git.CreateBlob(ctx, "%", "%", &Blob{})
+	ctx := t.Context()
+	_, _, err := client.Git.CreateBlob(ctx, "%", "%", Blob{})
 	testURLParseError(t, err)
 }
 
@@ -176,12 +175,12 @@ func TestBlob_Marshal(t *testing.T) {
 	testJSONMarshal(t, &Blob{}, "{}")
 
 	u := &Blob{
-		Content:  String("content"),
-		Encoding: String("encoding"),
-		SHA:      String("sha"),
-		Size:     Int(1),
-		URL:      String("url"),
-		NodeID:   String("nid"),
+		Content:  Ptr("content"),
+		Encoding: Ptr("encoding"),
+		SHA:      Ptr("sha"),
+		Size:     Ptr(1),
+		URL:      Ptr("url"),
+		NodeID:   Ptr("nid"),
 	}
 
 	want := `{

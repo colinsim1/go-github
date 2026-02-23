@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -30,8 +29,10 @@ func TestMigrationService_StartMigration(t *testing.T) {
 	opt := &MigrationOptions{
 		LockRepositories:   true,
 		ExcludeAttachments: false,
+		ExcludeReleases:    true,
+		Exclude:            []string{"repositories"},
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Migrations.StartMigration(ctx, "o", []string{"r"}, opt)
 	if err != nil {
 		t.Errorf("StartMigration returned error: %v", err)
@@ -64,10 +65,10 @@ func TestMigrationService_ListMigrations(t *testing.T) {
 		testHeader(t, r, "Accept", mediaTypeMigrationsPreview)
 
 		w.WriteHeader(http.StatusOK)
-		assertWrite(t, w, []byte(fmt.Sprintf("[%s]", migrationJSON)))
+		assertWrite(t, w, fmt.Appendf(nil, "[%s]", migrationJSON))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Migrations.ListMigrations(ctx, "o", &ListOptions{Page: 1, PerPage: 2})
 	if err != nil {
 		t.Errorf("ListMigrations returned error: %v", err)
@@ -103,7 +104,7 @@ func TestMigrationService_MigrationStatus(t *testing.T) {
 		assertWrite(t, w, migrationJSON)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Migrations.MigrationStatus(ctx, "o", 1)
 	if err != nil {
 		t.Errorf("MigrationStatus returned error: %v", err)
@@ -144,7 +145,7 @@ func TestMigrationService_MigrationArchiveURL(t *testing.T) {
 		assertWrite(t, w, []byte("0123456789abcdef"))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, err := client.Migrations.MigrationArchiveURL(ctx, "o", 1)
 	if err != nil {
 		t.Errorf("MigrationStatus returned error: %v", err)
@@ -171,7 +172,7 @@ func TestMigrationService_DeleteMigration(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if _, err := client.Migrations.DeleteMigration(ctx, "o", 1); err != nil {
 		t.Errorf("DeleteMigration returned error: %v", err)
 	}
@@ -198,7 +199,7 @@ func TestMigrationService_UnlockRepo(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if _, err := client.Migrations.UnlockRepo(ctx, "o", 1, "r"); err != nil {
 		t.Errorf("UnlockRepo returned error: %v", err)
 	}
@@ -234,20 +235,20 @@ var migrationJSON = []byte(`{
 }`)
 
 var wantMigration = &Migration{
-	ID:                 Int64(79),
-	GUID:               String("0b989ba4-242f-11e5-81e1-c7b6966d2516"),
-	State:              String("pending"),
-	LockRepositories:   Bool(true),
-	ExcludeAttachments: Bool(false),
-	URL:                String("https://api.github.com/orgs/octo-org/migrations/79"),
-	CreatedAt:          String("2015-07-06T15:33:38-07:00"),
-	UpdatedAt:          String("2015-07-06T15:33:38-07:00"),
+	ID:                 Ptr(int64(79)),
+	GUID:               Ptr("0b989ba4-242f-11e5-81e1-c7b6966d2516"),
+	State:              Ptr("pending"),
+	LockRepositories:   Ptr(true),
+	ExcludeAttachments: Ptr(false),
+	URL:                Ptr("https://api.github.com/orgs/octo-org/migrations/79"),
+	CreatedAt:          Ptr("2015-07-06T15:33:38-07:00"),
+	UpdatedAt:          Ptr("2015-07-06T15:33:38-07:00"),
 	Repositories: []*Repository{
 		{
-			ID:          Int64(1296269),
-			Name:        String("Hello-World"),
-			FullName:    String("octocat/Hello-World"),
-			Description: String("This your first repo!"),
+			ID:          Ptr(int64(1296269)),
+			Name:        Ptr("Hello-World"),
+			FullName:    Ptr("octocat/Hello-World"),
+			Description: Ptr("This your first repo!"),
 		},
 	},
 }
@@ -257,15 +258,15 @@ func TestMigration_Marshal(t *testing.T) {
 	testJSONMarshal(t, &Migration{}, "{}")
 
 	u := &Migration{
-		ID:                 Int64(1),
-		GUID:               String("guid"),
-		State:              String("state"),
-		LockRepositories:   Bool(false),
-		ExcludeAttachments: Bool(false),
-		URL:                String("url"),
-		CreatedAt:          String("ca"),
-		UpdatedAt:          String("ua"),
-		Repositories:       []*Repository{{ID: Int64(1)}},
+		ID:                 Ptr(int64(1)),
+		GUID:               Ptr("guid"),
+		State:              Ptr("state"),
+		LockRepositories:   Ptr(false),
+		ExcludeAttachments: Ptr(false),
+		URL:                Ptr("url"),
+		CreatedAt:          Ptr("ca"),
+		UpdatedAt:          Ptr("ua"),
+		Repositories:       []*Repository{{ID: Ptr(int64(1))}},
 	}
 
 	want := `{
@@ -293,8 +294,8 @@ func TestStartMigration_Marshal(t *testing.T) {
 
 	u := &startMigration{
 		Repositories:       []string{"r"},
-		LockRepositories:   Bool(false),
-		ExcludeAttachments: Bool(false),
+		LockRepositories:   Ptr(false),
+		ExcludeAttachments: Ptr(false),
 	}
 
 	want := `{

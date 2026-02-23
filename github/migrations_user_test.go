@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -32,7 +31,7 @@ func TestMigrationService_StartUserMigration(t *testing.T) {
 		ExcludeAttachments: false,
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Migrations.StartUserMigration(ctx, []string{"r"}, opt)
 	if err != nil {
 		t.Errorf("StartUserMigration returned error: %v", err)
@@ -62,10 +61,10 @@ func TestMigrationService_ListUserMigrations(t *testing.T) {
 		testHeader(t, r, "Accept", mediaTypeMigrationsPreview)
 
 		w.WriteHeader(http.StatusOK)
-		assertWrite(t, w, []byte(fmt.Sprintf("[%s]", userMigrationJSON)))
+		assertWrite(t, w, fmt.Appendf(nil, "[%s]", userMigrationJSON))
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Migrations.ListUserMigrations(ctx, &ListOptions{Page: 1, PerPage: 2})
 	if err != nil {
 		t.Errorf("ListUserMigrations returned error %v", err)
@@ -98,7 +97,7 @@ func TestMigrationService_UserMigrationStatus(t *testing.T) {
 		assertWrite(t, w, userMigrationJSON)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, _, err := client.Migrations.UserMigrationStatus(ctx, 1)
 	if err != nil {
 		t.Errorf("UserMigrationStatus returned error %v", err)
@@ -136,7 +135,7 @@ func TestMigrationService_UserMigrationArchiveURL(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, err := client.Migrations.UserMigrationArchiveURL(ctx, 1)
 	if err != nil {
 		t.Errorf("UserMigrationArchiveURL returned error %v", err)
@@ -159,7 +158,7 @@ func TestMigrationService_DeleteUserMigration(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, err := client.Migrations.DeleteUserMigration(ctx, 1)
 	if err != nil {
 		t.Errorf("DeleteUserMigration returned error %v", err)
@@ -191,7 +190,7 @@ func TestMigrationService_UnlockUserRepo(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	got, err := client.Migrations.UnlockUserRepo(ctx, 1, "r")
 	if err != nil {
 		t.Errorf("UnlockUserRepo returned error %v", err)
@@ -232,20 +231,20 @@ var userMigrationJSON = []byte(`{
 }`)
 
 var wantUserMigration = &UserMigration{
-	ID:                 Int64(79),
-	GUID:               String("0b989ba4-242f-11e5-81e1-c7b6966d2516"),
-	State:              String("pending"),
-	LockRepositories:   Bool(true),
-	ExcludeAttachments: Bool(false),
-	URL:                String("https://api.github.com/orgs/octo-org/migrations/79"),
-	CreatedAt:          String("2015-07-06T15:33:38-07:00"),
-	UpdatedAt:          String("2015-07-06T15:33:38-07:00"),
+	ID:                 Ptr(int64(79)),
+	GUID:               Ptr("0b989ba4-242f-11e5-81e1-c7b6966d2516"),
+	State:              Ptr("pending"),
+	LockRepositories:   Ptr(true),
+	ExcludeAttachments: Ptr(false),
+	URL:                Ptr("https://api.github.com/orgs/octo-org/migrations/79"),
+	CreatedAt:          Ptr("2015-07-06T15:33:38-07:00"),
+	UpdatedAt:          Ptr("2015-07-06T15:33:38-07:00"),
 	Repositories: []*Repository{
 		{
-			ID:          Int64(1296269),
-			Name:        String("Hello-World"),
-			FullName:    String("octocat/Hello-World"),
-			Description: String("This your first repo!"),
+			ID:          Ptr(int64(1296269)),
+			Name:        Ptr("Hello-World"),
+			FullName:    Ptr("octocat/Hello-World"),
+			Description: Ptr("This your first repo!"),
 		},
 	},
 }
@@ -255,15 +254,15 @@ func TestUserMigration_Marshal(t *testing.T) {
 	testJSONMarshal(t, &UserMigration{}, "{}")
 
 	u := &UserMigration{
-		ID:                 Int64(1),
-		GUID:               String("guid"),
-		State:              String("state"),
-		LockRepositories:   Bool(false),
-		ExcludeAttachments: Bool(false),
-		URL:                String("url"),
-		CreatedAt:          String("ca"),
-		UpdatedAt:          String("ua"),
-		Repositories:       []*Repository{{ID: Int64(1)}},
+		ID:                 Ptr(int64(1)),
+		GUID:               Ptr("guid"),
+		State:              Ptr("state"),
+		LockRepositories:   Ptr(false),
+		ExcludeAttachments: Ptr(false),
+		URL:                Ptr("url"),
+		CreatedAt:          Ptr("ca"),
+		UpdatedAt:          Ptr("ua"),
+		Repositories:       []*Repository{{ID: Ptr(int64(1))}},
 	}
 
 	want := `{
@@ -291,8 +290,8 @@ func TestStartUserMigration_Marshal(t *testing.T) {
 
 	u := &startUserMigration{
 		Repositories:       []string{"r"},
-		LockRepositories:   Bool(false),
-		ExcludeAttachments: Bool(false),
+		LockRepositories:   Ptr(false),
+		ExcludeAttachments: Ptr(false),
 	}
 
 	want := `{

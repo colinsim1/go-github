@@ -1,5 +1,7 @@
 #!/bin/sh
-#/ script/generate.sh runs go generate on all modules in this repo.
+#/ `script/generate.sh` runs `go generate` on all modules in this repo.
+#/ It also runs `script/run-check-structfield-settings.sh -fix` to keep linter
+#/ exceptions in `.golangci.yml` up to date.
 #/ `script/generate.sh --check` checks that the generated files are up to date.
 
 set -e
@@ -10,7 +12,10 @@ if [ "$1" = "--check" ]; then
   GENTEMP="$(mktemp -d)"
   git worktree add -q --detach "$GENTEMP"
   trap 'git worktree remove -f "$GENTEMP"; rm -rf "$GENTEMP"' EXIT
-  for f in $(git ls-files -com --exclude-standard); do
+  git diff --name-only --diff-filter=D --no-renames HEAD | while read -r f; do
+    rm -f "$GENTEMP/$f"
+  done
+  git ls-files -com --exclude-standard | while read -r f; do
     target="$GENTEMP/$f"
     mkdir -p "$(dirname -- "$target")"
     cp "$f" "$target"
@@ -21,7 +26,7 @@ if [ "$1" = "--check" ]; then
   (
     cd "$GENTEMP"
     git add .
-    git -c user.name='bot' -c user.email='bot@localhost' commit -m "generate" -q --allow-empty
+    git -c user.name='bot' -c user.email='bot@localhost' -c commit.gpgsign=false commit -m "generate" -q --allow-empty
     script/generate.sh
     [ -z "$(git status --porcelain)" ] || {
       msg="Generated files are out of date. Please run script/generate.sh and commit the results"
@@ -43,6 +48,7 @@ for dir in $MOD_DIRS; do
   (
     cd "$dir"
     go generate ./...
-    go mod tidy -compat '1.21'
+    go mod tidy
   )
 done
+script/run-check-structfield-settings.sh -fix

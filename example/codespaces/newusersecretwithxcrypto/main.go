@@ -38,7 +38,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/google/go-github/v67/github"
+	"github.com/google/go-github/v83/github"
 	"golang.org/x/crypto/nacl/box"
 )
 
@@ -129,17 +129,17 @@ func addUserSecret(ctx context.Context, client *github.Client, secretName, secre
 	}
 
 	if _, err := client.Codespaces.CreateOrUpdateUserSecret(ctx, encryptedSecret); err != nil {
-		return fmt.Errorf("Codespaces.CreateOrUpdateUserSecret returned error: %v", err)
+		return fmt.Errorf("client.Codespaces.CreateOrUpdateUserSecret returned error: %v", err)
 	}
 
 	if owner != "" && repo != "" {
 		r, _, err := client.Repositories.Get(ctx, owner, repo)
 		if err != nil {
-			return fmt.Errorf("Repositories.Get returned error: %v", err)
+			return fmt.Errorf("client.Repositories.Get returned error: %v", err)
 		}
 		_, err = client.Codespaces.AddSelectedRepoToUserSecret(ctx, encryptedSecret.Name, r)
 		if err != nil {
-			return fmt.Errorf("Codespaces.AddSelectedRepoToUserSecret returned error: %v", err)
+			return fmt.Errorf("client.Codespaces.AddSelectedRepoToUserSecret returned error: %v", err)
 		}
 		fmt.Printf("Added secret %q to %v/%v\n", secretName, owner, repo)
 	}
@@ -147,7 +147,7 @@ func addUserSecret(ctx context.Context, client *github.Client, secretName, secre
 	return nil
 }
 
-func encryptSecretWithPublicKey(publicKey *github.PublicKey, secretName string, secretValue string) (*github.EncryptedSecret, error) {
+func encryptSecretWithPublicKey(publicKey *github.PublicKey, secretName, secretValue string) (*github.EncryptedSecret, error) {
 	decodedPublicKey, err := base64.StdEncoding.DecodeString(publicKey.GetKey())
 	if err != nil {
 		return nil, fmt.Errorf("base64.StdEncoding.DecodeString was unable to decode public key: %v", err)

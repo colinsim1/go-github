@@ -36,7 +36,6 @@ func (s *CodesOfConductService) List(ctx context.Context) ([]*CodeOfConduct, *Re
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeCodesOfConductPreview)
 
 	var cs []*CodeOfConduct
@@ -61,13 +60,12 @@ func (c *Client) ListCodesOfConduct(ctx context.Context) ([]*CodeOfConduct, *Res
 //
 //meta:operation GET /codes_of_conduct/{key}
 func (s *CodesOfConductService) Get(ctx context.Context, key string) (*CodeOfConduct, *Response, error) {
-	u := fmt.Sprintf("codes_of_conduct/%s", key)
+	u := fmt.Sprintf("codes_of_conduct/%v", key)
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches.
 	req.Header.Set("Accept", mediaTypeCodesOfConductPreview)
 
 	coc := new(CodeOfConduct)

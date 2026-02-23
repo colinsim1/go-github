@@ -6,10 +6,8 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -19,14 +17,8 @@ func TestAppsService_ListRepos(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	wantAcceptHeaders := []string{
-		mediaTypeTopicsPreview,
-		mediaTypeRepositoryVisibilityPreview,
-		mediaTypeRepositoryTemplatePreview,
-	}
 	mux.HandleFunc("/installation/repositories", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		testHeader(t, r, "Accept", strings.Join(wantAcceptHeaders, ", "))
 		testFormValues(t, r, values{
 			"page":     "1",
 			"per_page": "2",
@@ -35,13 +27,13 @@ func TestAppsService_ListRepos(t *testing.T) {
 	})
 
 	opt := &ListOptions{Page: 1, PerPage: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	repositories, _, err := client.Apps.ListRepos(ctx, opt)
 	if err != nil {
 		t.Errorf("Apps.ListRepos returned error: %v", err)
 	}
 
-	want := &ListRepositories{TotalCount: Int(1), Repositories: []*Repository{{ID: Int64(1)}}}
+	want := &ListRepositories{TotalCount: Ptr(1), Repositories: []*Repository{{ID: Ptr(int64(1))}}}
 	if !cmp.Equal(repositories, want) {
 		t.Errorf("Apps.ListRepos returned %+v, want %+v", repositories, want)
 	}
@@ -60,14 +52,8 @@ func TestAppsService_ListUserRepos(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	wantAcceptHeaders := []string{
-		mediaTypeTopicsPreview,
-		mediaTypeRepositoryVisibilityPreview,
-		mediaTypeRepositoryTemplatePreview,
-	}
 	mux.HandleFunc("/user/installations/1/repositories", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		testHeader(t, r, "Accept", strings.Join(wantAcceptHeaders, ", "))
 		testFormValues(t, r, values{
 			"page":     "1",
 			"per_page": "2",
@@ -76,13 +62,13 @@ func TestAppsService_ListUserRepos(t *testing.T) {
 	})
 
 	opt := &ListOptions{Page: 1, PerPage: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	repositories, _, err := client.Apps.ListUserRepos(ctx, 1, opt)
 	if err != nil {
 		t.Errorf("Apps.ListUserRepos returned error: %v", err)
 	}
 
-	want := &ListRepositories{TotalCount: Int(1), Repositories: []*Repository{{ID: Int64(1)}}}
+	want := &ListRepositories{TotalCount: Ptr(1), Repositories: []*Repository{{ID: Ptr(int64(1))}}}
 	if !cmp.Equal(repositories, want) {
 		t.Errorf("Apps.ListUserRepos returned %+v, want %+v", repositories, want)
 	}
@@ -111,13 +97,13 @@ func TestAppsService_AddRepository(t *testing.T) {
 		fmt.Fprint(w, `{"id":1,"name":"n","description":"d","owner":{"login":"l"},"license":{"key":"mit"}}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo, _, err := client.Apps.AddRepository(ctx, 1, 1)
 	if err != nil {
 		t.Errorf("Apps.AddRepository returned error: %v", err)
 	}
 
-	want := &Repository{ID: Int64(1), Name: String("n"), Description: String("d"), Owner: &User{Login: String("l")}, License: &License{Key: String("mit")}}
+	want := &Repository{ID: Ptr(int64(1)), Name: Ptr("n"), Description: Ptr("d"), Owner: &User{Login: Ptr("l")}, License: &License{Key: Ptr("mit")}}
 	if !cmp.Equal(repo, want) {
 		t.Errorf("AddRepository returned %+v, want %+v", repo, want)
 	}
@@ -141,7 +127,7 @@ func TestAppsService_RemoveRepository(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Apps.RemoveRepository(ctx, 1, 1)
 	if err != nil {
 		t.Errorf("Apps.RemoveRepository returned error: %v", err)
@@ -162,7 +148,7 @@ func TestAppsService_RevokeInstallationToken(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Apps.RevokeInstallationToken(ctx)
 	if err != nil {
 		t.Errorf("Apps.RevokeInstallationToken returned error: %v", err)
@@ -179,12 +165,12 @@ func TestListRepositories_Marshal(t *testing.T) {
 	testJSONMarshal(t, &ListRepositories{}, "{}")
 
 	u := &ListRepositories{
-		TotalCount: Int(1),
+		TotalCount: Ptr(1),
 		Repositories: []*Repository{
 			{
-				ID:   Int64(1),
-				URL:  String("u"),
-				Name: String("n"),
+				ID:   Ptr(int64(1)),
+				URL:  Ptr("u"),
+				Name: Ptr("n"),
 			},
 		},
 	}

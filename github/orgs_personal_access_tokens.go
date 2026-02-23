@@ -7,8 +7,8 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -43,6 +43,12 @@ type PersonalAccessToken struct {
 
 	// Date and time when the associated fine-grained personal access token expires.
 	TokenExpiresAt *Timestamp `json:"token_expires_at"`
+
+	// TokenID
+	TokenID *int64 `json:"token_id"`
+
+	// TokenName
+	TokenName *string `json:"token_name"`
 
 	// Date and time when the associated fine-grained personal access token was last used for authentication.
 	TokenLastUsedAt *Timestamp `json:"token_last_used_at"`
@@ -94,7 +100,7 @@ func (s *OrganizationsService) ListFineGrainedPersonalAccessTokens(ctx context.C
 		return nil, nil, err
 	}
 
-	req, err := s.client.NewRequest(http.MethodGet, u, opts)
+	req, err := s.client.NewRequest("GET", u, opts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -125,7 +131,7 @@ type ReviewPersonalAccessTokenRequestOptions struct {
 func (s *OrganizationsService) ReviewPersonalAccessTokenRequest(ctx context.Context, org string, requestID int64, opts ReviewPersonalAccessTokenRequestOptions) (*Response, error) {
 	u := fmt.Sprintf("orgs/%v/personal-access-token-requests/%v", org, requestID)
 
-	req, err := s.client.NewRequest(http.MethodPost, u, &opts)
+	req, err := s.client.NewRequest("POST", u, &opts)
 	if err != nil {
 		return nil, err
 	}
@@ -149,10 +155,14 @@ func addListFineGrainedPATOptions(s string, opts *ListFineGrainedPATOptions) (st
 		return s, err
 	}
 
+	if opts == nil {
+		return "", errors.New("opts must be provided")
+	}
+
 	if len(opts.Owner) > 0 {
 		ownerVals := make([]string, len(opts.Owner))
 		for i, owner := range opts.Owner {
-			ownerVals[i] = fmt.Sprintf("owner[]=%s", url.QueryEscape(owner))
+			ownerVals[i] = fmt.Sprintf("owner[]=%v", url.QueryEscape(owner))
 		}
 		ownerQuery := strings.Join(ownerVals, "&")
 

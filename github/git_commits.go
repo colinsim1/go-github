@@ -37,6 +37,7 @@ type MessageSigner interface {
 // MessageSignerFunc is a single function implementation of MessageSigner.
 type MessageSignerFunc func(w io.Writer, r io.Reader) error
 
+// Sign implements the MessageSigner interface for MessageSignerFunc.
 func (f MessageSignerFunc) Sign(w io.Writer, r io.Reader) error {
 	return f(w, r)
 }
@@ -49,7 +50,6 @@ type Commit struct {
 	Message      *string                `json:"message,omitempty"`
 	Tree         *Tree                  `json:"tree,omitempty"`
 	Parents      []*Commit              `json:"parents,omitempty"`
-	Stats        *CommitStats           `json:"stats,omitempty"`
 	HTMLURL      *string                `json:"html_url,omitempty"`
 	URL          *string                `json:"url,omitempty"`
 	Verification *SignatureVerification `json:"verification,omitempty"`
@@ -85,7 +85,7 @@ func (c CommitAuthor) String() string {
 // GitHub API docs: https://docs.github.com/rest/git/commits#get-a-commit-object
 //
 //meta:operation GET /repos/{owner}/{repo}/git/commits/{commit_sha}
-func (s *GitService) GetCommit(ctx context.Context, owner string, repo string, sha string) (*Commit, *Response, error) {
+func (s *GitService) GetCommit(ctx context.Context, owner, repo, sha string) (*Commit, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/git/commits/%v", owner, repo, sha)
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
@@ -111,6 +111,8 @@ type createCommit struct {
 	Signature *string       `json:"signature,omitempty"`
 }
 
+// CreateCommitOptions specifies optional parameters to creates
+// a new commit in a repository.
 type CreateCommitOptions struct {
 	// CreateCommit will sign the commit with this signer. See MessageSigner doc for more details.
 	// Ignored on commits where Verification.Signature is defined.
@@ -127,10 +129,7 @@ type CreateCommitOptions struct {
 // GitHub API docs: https://docs.github.com/rest/git/commits#create-a-commit
 //
 //meta:operation POST /repos/{owner}/{repo}/git/commits
-func (s *GitService) CreateCommit(ctx context.Context, owner string, repo string, commit *Commit, opts *CreateCommitOptions) (*Commit, *Response, error) {
-	if commit == nil {
-		return nil, nil, errors.New("commit must be provided")
-	}
+func (s *GitService) CreateCommit(ctx context.Context, owner, repo string, commit Commit, opts *CreateCommitOptions) (*Commit, *Response, error) {
 	if opts == nil {
 		opts = &CreateCommitOptions{}
 	}
@@ -203,14 +202,14 @@ func createSignatureMessage(commit *createCommit) (string, error) {
 	var message []string
 
 	if commit.Tree != nil {
-		message = append(message, fmt.Sprintf("tree %s", *commit.Tree))
+		message = append(message, fmt.Sprintf("tree %v", *commit.Tree))
 	}
 
 	for _, parent := range commit.Parents {
-		message = append(message, fmt.Sprintf("parent %s", parent))
+		message = append(message, fmt.Sprintf("parent %v", parent))
 	}
 
-	message = append(message, fmt.Sprintf("author %s <%s> %d %s", commit.Author.GetName(), commit.Author.GetEmail(), commit.Author.GetDate().Unix(), commit.Author.GetDate().Format("-0700")))
+	message = append(message, fmt.Sprintf("author %v <%v> %v %v", commit.Author.GetName(), commit.Author.GetEmail(), commit.Author.GetDate().Unix(), commit.Author.GetDate().Format("-0700")))
 
 	committer := commit.Committer
 	if committer == nil {
@@ -218,7 +217,7 @@ func createSignatureMessage(commit *createCommit) (string, error) {
 	}
 
 	// There needs to be a double newline after committer
-	message = append(message, fmt.Sprintf("committer %s <%s> %d %s\n", committer.GetName(), committer.GetEmail(), committer.GetDate().Unix(), committer.GetDate().Format("-0700")))
+	message = append(message, fmt.Sprintf("committer %v <%v> %v %v\n", committer.GetName(), committer.GetEmail(), committer.GetDate().Unix(), committer.GetDate().Format("-0700")))
 	message = append(message, *commit.Message)
 
 	return strings.Join(message, "\n"), nil

@@ -4,8 +4,9 @@
 // license that can be found in the LICENSE file.
 
 //go:generate go run gen-accessors.go
+//go:generate go run gen-iterators.go
 //go:generate go run gen-stringify-test.go
-//go:generate ../script/metadata.sh update-go
+//go:generate sh ../script/metadata.sh update-go
 
 package github
 
@@ -18,7 +19,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,21 +29,25 @@ import (
 )
 
 const (
-	Version = "v67.0.0"
+	Version = "v83.0.0"
+
+	HeaderRateLimit     = "X-Ratelimit-Limit"
+	HeaderRateRemaining = "X-Ratelimit-Remaining"
+	HeaderRateReset     = "X-Ratelimit-Reset"
+	HeaderRateResource  = "X-Ratelimit-Resource"
+	HeaderRateUsed      = "X-Ratelimit-Used"
+	HeaderRequestID     = "X-Github-Request-Id"
 
 	defaultAPIVersion = "2022-11-28"
 	defaultBaseURL    = "https://api.github.com/"
 	defaultUserAgent  = "go-github" + "/" + Version
 	uploadBaseURL     = "https://uploads.github.com/"
 
-	headerAPIVersion    = "X-GitHub-Api-Version"
-	headerRateLimit     = "X-RateLimit-Limit"
-	headerRateRemaining = "X-RateLimit-Remaining"
-	headerRateReset     = "X-RateLimit-Reset"
-	headerOTP           = "X-GitHub-OTP"
-	headerRetryAfter    = "Retry-After"
+	headerAPIVersion = "X-Github-Api-Version"
+	headerOTP        = "X-Github-Otp"
+	headerRetryAfter = "Retry-After"
 
-	headerTokenExpiration = "GitHub-Authentication-Token-Expiration"
+	headerTokenExpiration = "Github-Authentication-Token-Expiration"
 
 	mediaTypeV3                = "application/vnd.github.v3+json"
 	defaultMediaType           = "application/octet-stream"
@@ -51,8 +56,10 @@ const (
 	mediaTypeV3Patch           = "application/vnd.github.v3.patch"
 	mediaTypeOrgPermissionRepo = "application/vnd.github.v3.repository+json"
 	mediaTypeIssueImportAPI    = "application/vnd.github.golden-comet-preview+json"
+	mediaTypeStarring          = "application/vnd.github.star+json"
+	mediaTypeSCIM              = "application/scim+json"
 
-	// Media Type values to access preview APIs
+	// Media Type values to access preview APIs.
 	// These media types will be added to the API request as headers
 	// and used to enable particular features on GitHub API that are still in preview.
 	// After some time, specific media types will be promoted (to a "stable" state).
@@ -67,10 +74,7 @@ const (
 	// versions. Additionally, non-functional (preview) headers don't create any side effects
 	// on GitHub Cloud version.
 	//
-	// See https://github.com/google/go-github/pull/2125 for full context.
-
-	// https://developer.github.com/changes/2014-12-09-new-attributes-for-stars-api/
-	mediaTypeStarringPreview = "application/vnd.github.v3.star+json"
+	// See https://github.com/google/go-github/pull/2125 and https://github.com/google/go-github/pull/2188 for full context.
 
 	// https://help.github.com/enterprise/2.4/admin/guides/migrations/exporting-the-github-com-organization-s-repositories/
 	mediaTypeMigrationsPreview = "application/vnd.github.wyandotte-preview+json"
@@ -155,8 +159,9 @@ var errNonNilContext = errors.New("context must be non-nil")
 
 // A Client manages communication with the GitHub API.
 type Client struct {
-	clientMu sync.Mutex   // clientMu protects the client during calls that modify the CheckRedirect func.
-	client   *http.Client // HTTP client used to communicate with the API.
+	clientMu              sync.Mutex   // clientMu protects the client during calls that modify the CheckRedirect func.
+	client                *http.Client // HTTP client used to communicate with the API.
+	clientIgnoreRedirects *http.Client // HTTP client used to communicate with the API on endpoints where we don't want to follow redirects.
 
 	// Base URL for API requests. Defaults to the public GitHub API, but can be
 	// set to a domain endpoint to use with GitHub Enterprise. BaseURL should
@@ -169,9 +174,21 @@ type Client struct {
 	// User agent used when communicating with the GitHub API.
 	UserAgent string
 
+	// DisableRateLimitCheck stops the client checking for rate limits or tracking
+	// them. This is different to setting BypassRateLimitCheck in the context,
+	// as that still tracks the rate limits.
+	DisableRateLimitCheck bool
+
 	rateMu                  sync.Mutex
 	rateLimits              [Categories]Rate // Rate limits for the client as determined by the most recent API calls.
 	secondaryRateLimitReset time.Time        // Secondary rate limit reset for the client as determined by the most recent API calls.
+
+	// If specified, Client will block requests for at most this duration in case of reaching a secondary
+	// rate limit
+	MaxSecondaryRateLimitRetryAfterDuration time.Duration
+
+	// Whether to respect rate limit headers on endpoints that return 302 redirections to artifacts
+	RateLimitRedirectionalEndpoints bool
 
 	common service // Reuse a single struct instead of allocating one for each service on the heap.
 
@@ -183,10 +200,12 @@ type Client struct {
 	Authorizations     *AuthorizationsService
 	Billing            *BillingService
 	Checks             *ChecksService
+	Classroom          *ClassroomService
 	CodeScanning       *CodeScanningService
 	CodesOfConduct     *CodesOfConductService
 	Codespaces         *CodespacesService
 	Copilot            *CopilotService
+	Credentials        *CredentialsService
 	Dependabot         *DependabotService
 	DependencyGraph    *DependencyGraphService
 	Emojis             *EmojisService
@@ -203,6 +222,7 @@ type Client struct {
 	Meta               *MetaService
 	Migrations         *MigrationService
 	Organizations      *OrganizationsService
+	PrivateRegistries  *PrivateRegistriesService
 	Projects           *ProjectsService
 	PullRequests       *PullRequestsService
 	RateLimit          *RateLimitService
@@ -212,6 +232,7 @@ type Client struct {
 	Search             *SearchService
 	SecretScanning     *SecretScanningService
 	SecurityAdvisories *SecurityAdvisoriesService
+	SubIssue           *SubIssueService
 	Teams              *TeamsService
 	Users              *UsersService
 }
@@ -290,11 +311,12 @@ type RawOptions struct {
 	Type RawType
 }
 
+type structPtr[T any] interface{ *T }
+
 // addOptions adds the parameters in opts as URL query parameters to s. opts
 // must be a struct whose fields may contain "url" tags.
-func addOptions(s string, opts interface{}) (string, error) {
-	v := reflect.ValueOf(opts)
-	if v.Kind() == reflect.Ptr && v.IsNil() {
+func addOptions[P structPtr[T], T any](s string, opts P) (string, error) {
+	if opts == nil {
 		return s, nil
 	}
 
@@ -317,6 +339,10 @@ func addOptions(s string, opts interface{}) (string, error) {
 // authentication, either use Client.WithAuthToken or provide NewClient with
 // an http.Client that will perform the authentication for you (such as that
 // provided by the golang.org/x/oauth2 library).
+//
+// Note: When using a nil httpClient, the default client has no timeout set.
+// This may not be suitable for production environments. It is recommended to
+// provide a custom http.Client with an appropriate timeout.
 func NewClient(httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{}
@@ -338,7 +364,9 @@ func (c *Client) WithAuthToken(token string) *Client {
 	c2.client.Transport = roundTripperFunc(
 		func(req *http.Request) (*http.Response, error) {
 			req = req.Clone(req.Context())
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+			if token != "" {
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", token))
+			}
 			return transport.RoundTrip(req)
 		},
 	)
@@ -384,7 +412,8 @@ func (c *Client) WithEnterpriseURLs(baseURL, uploadURL string) (*Client, error) 
 	}
 	if !strings.HasSuffix(c2.UploadURL.Path, "/api/uploads/") &&
 		!strings.HasPrefix(c2.UploadURL.Host, "api.") &&
-		!strings.Contains(c2.UploadURL.Host, ".api.") {
+		!strings.Contains(c2.UploadURL.Host, ".api.") &&
+		!strings.HasPrefix(c2.UploadURL.Host, "uploads.") {
 		c2.UploadURL.Path += "api/uploads/"
 	}
 	return c2, nil
@@ -394,6 +423,14 @@ func (c *Client) WithEnterpriseURLs(baseURL, uploadURL string) (*Client, error) 
 func (c *Client) initialize() {
 	if c.client == nil {
 		c.client = &http.Client{}
+	}
+	// Copy the main http client into the IgnoreRedirects one, overriding the `CheckRedirect` func
+	c.clientIgnoreRedirects = &http.Client{}
+	c.clientIgnoreRedirects.Transport = c.client.Transport
+	c.clientIgnoreRedirects.Timeout = c.client.Timeout
+	c.clientIgnoreRedirects.Jar = c.client.Jar
+	c.clientIgnoreRedirects.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 	if c.BaseURL == nil {
 		c.BaseURL, _ = url.Parse(defaultBaseURL)
@@ -412,10 +449,12 @@ func (c *Client) initialize() {
 	c.Authorizations = (*AuthorizationsService)(&c.common)
 	c.Billing = (*BillingService)(&c.common)
 	c.Checks = (*ChecksService)(&c.common)
+	c.Classroom = (*ClassroomService)(&c.common)
 	c.CodeScanning = (*CodeScanningService)(&c.common)
 	c.Codespaces = (*CodespacesService)(&c.common)
 	c.CodesOfConduct = (*CodesOfConductService)(&c.common)
 	c.Copilot = (*CopilotService)(&c.common)
+	c.Credentials = (*CredentialsService)(&c.common)
 	c.Dependabot = (*DependabotService)(&c.common)
 	c.DependencyGraph = (*DependencyGraphService)(&c.common)
 	c.Emojis = (*EmojisService)(&c.common)
@@ -432,6 +471,7 @@ func (c *Client) initialize() {
 	c.Meta = (*MetaService)(&c.common)
 	c.Migrations = (*MigrationService)(&c.common)
 	c.Organizations = (*OrganizationsService)(&c.common)
+	c.PrivateRegistries = (*PrivateRegistriesService)(&c.common)
 	c.Projects = (*ProjectsService)(&c.common)
 	c.PullRequests = (*PullRequestsService)(&c.common)
 	c.RateLimit = (*RateLimitService)(&c.common)
@@ -441,6 +481,7 @@ func (c *Client) initialize() {
 	c.Search = (*SearchService)(&c.common)
 	c.SecretScanning = (*SecretScanningService)(&c.common)
 	c.SecurityAdvisories = (*SecurityAdvisoriesService)(&c.common)
+	c.SubIssue = (*SubIssueService)(&c.common)
 	c.Teams = (*TeamsService)(&c.common)
 	c.Users = (*UsersService)(&c.common)
 }
@@ -450,11 +491,12 @@ func (c *Client) copy() *Client {
 	c.clientMu.Lock()
 	// can't use *c here because that would copy mutexes by value.
 	clone := Client{
-		client:                  &http.Client{},
-		UserAgent:               c.UserAgent,
-		BaseURL:                 c.BaseURL,
-		UploadURL:               c.UploadURL,
-		secondaryRateLimitReset: c.secondaryRateLimitReset,
+		client:                          &http.Client{},
+		UserAgent:                       c.UserAgent,
+		BaseURL:                         c.BaseURL,
+		UploadURL:                       c.UploadURL,
+		RateLimitRedirectionalEndpoints: c.RateLimitRedirectionalEndpoints,
+		secondaryRateLimitReset:         c.secondaryRateLimitReset,
 	}
 	c.clientMu.Unlock()
 	if c.client != nil {
@@ -475,6 +517,7 @@ func NewClientWithEnvProxy() *Client {
 }
 
 // NewTokenClient returns a new GitHub API client authenticated with the provided token.
+//
 // Deprecated: Use NewClient(nil).WithAuthToken(token) instead.
 func NewTokenClient(_ context.Context, token string) *Client {
 	// This always returns a nil error.
@@ -506,9 +549,9 @@ func WithVersion(version string) RequestOption {
 // Relative URLs should always be specified without a preceding slash. If
 // specified, the value pointed to by body is JSON encoded and included as the
 // request body.
-func (c *Client) NewRequest(method, urlStr string, body interface{}, opts ...RequestOption) (*http.Request, error) {
+func (c *Client) NewRequest(method, urlStr string, body any, opts ...RequestOption) (*http.Request, error) {
 	if !strings.HasSuffix(c.BaseURL.Path, "/") {
-		return nil, fmt.Errorf("BaseURL must have a trailing slash, but %q does not", c.BaseURL)
+		return nil, fmt.Errorf("baseURL must have a trailing slash, but %q does not", c.BaseURL)
 	}
 
 	u, err := c.BaseURL.Parse(urlStr)
@@ -554,7 +597,7 @@ func (c *Client) NewRequest(method, urlStr string, body interface{}, opts ...Req
 // Body is sent with Content-Type: application/x-www-form-urlencoded.
 func (c *Client) NewFormRequest(urlStr string, body io.Reader, opts ...RequestOption) (*http.Request, error) {
 	if !strings.HasSuffix(c.BaseURL.Path, "/") {
-		return nil, fmt.Errorf("BaseURL must have a trailing slash, but %q does not", c.BaseURL)
+		return nil, fmt.Errorf("baseURL must have a trailing slash, but %q does not", c.BaseURL)
 	}
 
 	u, err := c.BaseURL.Parse(urlStr)
@@ -562,7 +605,7 @@ func (c *Client) NewFormRequest(urlStr string, body io.Reader, opts ...RequestOp
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, u.String(), body)
+	req, err := http.NewRequest("POST", u.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -586,7 +629,7 @@ func (c *Client) NewFormRequest(urlStr string, body io.Reader, opts ...RequestOp
 // Relative URLs should always be specified without a preceding slash.
 func (c *Client) NewUploadRequest(urlStr string, reader io.Reader, size int64, mediaType string, opts ...RequestOption) (*http.Request, error) {
 	if !strings.HasSuffix(c.UploadURL.Path, "/") {
-		return nil, fmt.Errorf("UploadURL must have a trailing slash, but %q does not", c.UploadURL)
+		return nil, fmt.Errorf("uploadURL must have a trailing slash, but %q does not", c.UploadURL)
 	}
 	u, err := c.UploadURL.Parse(urlStr)
 	if err != nil {
@@ -678,7 +721,7 @@ func newResponse(r *http.Response) *Response {
 // various pagination link values in the Response.
 func (r *Response) populatePageValues() {
 	if links, ok := r.Response.Header["Link"]; ok && len(links) > 0 {
-		for _, link := range strings.Split(links[0], ",") {
+		for link := range strings.SplitSeq(links[0], ",") {
 			segments := strings.Split(strings.TrimSpace(link), ";")
 
 			// link must at least have href and rel
@@ -701,8 +744,7 @@ func (r *Response) populatePageValues() {
 
 			if cursor := q.Get("cursor"); cursor != "" {
 				for _, segment := range segments[1:] {
-					switch strings.TrimSpace(segment) {
-					case `rel="next"`:
+					if strings.TrimSpace(segment) == `rel="next"` {
 						r.Cursor = cursor
 					}
 				}
@@ -746,16 +788,22 @@ func (r *Response) populatePageValues() {
 // parseRate parses the rate related headers.
 func parseRate(r *http.Response) Rate {
 	var rate Rate
-	if limit := r.Header.Get(headerRateLimit); limit != "" {
+	if limit := r.Header.Get(HeaderRateLimit); limit != "" {
 		rate.Limit, _ = strconv.Atoi(limit)
 	}
-	if remaining := r.Header.Get(headerRateRemaining); remaining != "" {
+	if remaining := r.Header.Get(HeaderRateRemaining); remaining != "" {
 		rate.Remaining, _ = strconv.Atoi(remaining)
 	}
-	if reset := r.Header.Get(headerRateReset); reset != "" {
+	if used := r.Header.Get(HeaderRateUsed); used != "" {
+		rate.Used, _ = strconv.Atoi(used)
+	}
+	if reset := r.Header.Get(HeaderRateReset); reset != "" {
 		if v, _ := strconv.ParseInt(reset, 10, 64); v != 0 {
 			rate.Reset = Timestamp{time.Unix(v, 0)}
 		}
+	}
+	if resource := r.Header.Get(HeaderRateResource); resource != "" {
+		rate.Resource = resource
 	}
 	return rate
 }
@@ -775,7 +823,7 @@ func parseSecondaryRate(r *http.Response) *time.Duration {
 	// According to GitHub support, endpoints might return x-ratelimit-reset instead,
 	// as an integer which represents the number of seconds since epoch UTC,
 	// representing the time to resume making requests.
-	if v := r.Header.Get(headerRateReset); v != "" {
+	if v := r.Header.Get(HeaderRateReset); v != "" {
 		secondsSinceEpoch, _ := strconv.ParseInt(v, 10, 64) // Error handling is noop.
 		retryAfter := time.Until(time.Unix(secondsSinceEpoch, 0))
 		return &retryAfter
@@ -803,69 +851,83 @@ func parseTokenExpiration(r *http.Response) Timestamp {
 type requestContext uint8
 
 const (
-	bypassRateLimitCheck requestContext = iota
+	// BypassRateLimitCheck prevents a pre-emptive check for exceeded primary rate limits
+	// Specify this by providing a context with this key, e.g.
+	//   context.WithValue(context.Background(), github.BypassRateLimitCheck, true)
+	BypassRateLimitCheck requestContext = iota
+
 	SleepUntilPrimaryRateLimitResetWhenRateLimited
 )
 
-// BareDo sends an API request and lets you handle the api response. If an error
-// or API Error occurs, the error will contain more information. Otherwise you
-// are supposed to read and close the response's Body. If rate limit is exceeded
-// and reset time is in the future, BareDo returns *RateLimitError immediately
-// without making a network API call.
+// bareDo sends an API request using `caller` http.Client passed in the parameters
+// and lets you handle the api response. If an error or API Error occurs, the error
+// will contain more information. Otherwise, you are supposed to read and close the
+// response's Body. If rate limit is exceeded and reset time is in the future,
+// bareDo returns *RateLimitError immediately without making a network API call.
 //
 // The provided ctx must be non-nil, if it is nil an error is returned. If it is
 // canceled or times out, ctx.Err() will be returned.
-func (c *Client) BareDo(ctx context.Context, req *http.Request) (*Response, error) {
+func (c *Client) bareDo(ctx context.Context, caller *http.Client, req *http.Request) (*Response, error) {
 	if ctx == nil {
 		return nil, errNonNilContext
 	}
 
 	req = withContext(ctx, req)
 
-	rateLimitCategory := GetRateLimitCategory(req.Method, req.URL.Path)
+	rateLimitCategory := CoreCategory
 
-	if bypass := ctx.Value(bypassRateLimitCheck); bypass == nil {
-		// If we've hit rate limit, don't make further requests before Reset time.
-		if err := c.checkRateLimitBeforeDo(req, rateLimitCategory); err != nil {
-			return &Response{
-				Response: err.Response,
-				Rate:     err.Rate,
-			}, err
-		}
-		// If we've hit a secondary rate limit, don't make further requests before Retry After.
-		if err := c.checkSecondaryRateLimitBeforeDo(req); err != nil {
-			return &Response{
-				Response: err.Response,
-			}, err
+	if !c.DisableRateLimitCheck {
+		rateLimitCategory = GetRateLimitCategory(req.Method, req.URL.Path)
+
+		if bypass := ctx.Value(BypassRateLimitCheck); bypass == nil {
+			// If we've hit rate limit, don't make further requests before Reset time.
+			if err := c.checkRateLimitBeforeDo(req, rateLimitCategory); err != nil {
+				return &Response{
+					Response: err.Response,
+					Rate:     err.Rate,
+				}, err
+			}
+
+			// If we've hit a secondary rate limit, don't make further requests before Retry After.
+			if err := c.checkSecondaryRateLimitBeforeDo(req); err != nil {
+				return &Response{
+					Response: err.Response,
+				}, err
+			}
 		}
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := caller.Do(req)
+	var response *Response
+	if resp != nil {
+		response = newResponse(resp)
+	}
+
 	if err != nil {
 		// If we got an error, and the context has been canceled,
 		// the context's error is probably more useful.
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return response, ctx.Err()
 		default:
 		}
 
 		// If the error type is *url.Error, sanitize its URL before returning.
-		if e, ok := err.(*url.Error); ok {
+		var e *url.Error
+		if errors.As(err, &e) {
 			if url, err := url.Parse(e.URL); err == nil {
 				e.URL = sanitizeURL(url).String()
-				return nil, e
+				return response, e
 			}
 		}
 
-		return nil, err
+		return response, err
 	}
 
-	response := newResponse(resp)
-
-	// Don't update the rate limits if this was a cached response.
-	// X-From-Cache is set by https://github.com/gregjones/httpcache
-	if response.Header.Get("X-From-Cache") == "" {
+	// Don't update the rate limits if the client has rate limits disabled or if
+	// this was a cached response. The X-From-Cache is set by
+	// https://github.com/bartventer/httpcache if it's enabled.
+	if !c.DisableRateLimitCheck && response.Header.Get("X-From-Cache") == "" {
 		c.rateMu.Lock()
 		c.rateLimits[rateLimitCategory] = response.Rate
 		c.rateMu.Unlock()
@@ -879,8 +941,8 @@ func (c *Client) BareDo(ctx context.Context, req *http.Request) (*Response, erro
 		// added to the AcceptedError and returned.
 		//
 		// Issue #1022
-		aerr, ok := err.(*AcceptedError)
-		if ok {
+		var aerr *AcceptedError
+		if errors.As(err, &aerr) {
 			b, readErr := io.ReadAll(resp.Body)
 			if readErr != nil {
 				return response, readErr
@@ -890,24 +952,95 @@ func (c *Client) BareDo(ctx context.Context, req *http.Request) (*Response, erro
 			err = aerr
 		}
 
-		rateLimitError, ok := err.(*RateLimitError)
-		if ok && req.Context().Value(SleepUntilPrimaryRateLimitResetWhenRateLimited) != nil {
+		var rateLimitError *RateLimitError
+		if errors.As(err, &rateLimitError) &&
+			req.Context().Value(SleepUntilPrimaryRateLimitResetWhenRateLimited) != nil {
 			if err := sleepUntilResetWithBuffer(req.Context(), rateLimitError.Rate.Reset.Time); err != nil {
 				return response, err
 			}
 			// retry the request once when the rate limit has reset
-			return c.BareDo(context.WithValue(req.Context(), SleepUntilPrimaryRateLimitResetWhenRateLimited, nil), req)
+			return c.bareDo(context.WithValue(req.Context(), SleepUntilPrimaryRateLimitResetWhenRateLimited, nil), caller, req)
 		}
 
 		// Update the secondary rate limit if we hit it.
-		rerr, ok := err.(*AbuseRateLimitError)
-		if ok && rerr.RetryAfter != nil {
+		var rerr *AbuseRateLimitError
+		if errors.As(err, &rerr) && rerr.RetryAfter != nil {
+			// if a max duration is specified, make sure that we are waiting at most this duration
+			if c.MaxSecondaryRateLimitRetryAfterDuration > 0 && rerr.GetRetryAfter() > c.MaxSecondaryRateLimitRetryAfterDuration {
+				rerr.RetryAfter = &c.MaxSecondaryRateLimitRetryAfterDuration
+			}
 			c.rateMu.Lock()
 			c.secondaryRateLimitReset = time.Now().Add(*rerr.RetryAfter)
 			c.rateMu.Unlock()
 		}
 	}
 	return response, err
+}
+
+// BareDo sends an API request and lets you handle the api response. If an error
+// or API Error occurs, the error will contain more information. Otherwise, you
+// are supposed to read and close the response's Body. If rate limit is exceeded
+// and reset time is in the future, BareDo returns *RateLimitError immediately
+// without making a network API call.
+//
+// The provided ctx must be non-nil, if it is nil an error is returned. If it is
+// canceled or times out, ctx.Err() will be returned.
+func (c *Client) BareDo(ctx context.Context, req *http.Request) (*Response, error) {
+	return c.bareDo(ctx, c.client, req)
+}
+
+// bareDoIgnoreRedirects has the exact same behavior as BareDo but stops at the first
+// redirection code returned by the API. If a redirection is returned by the api, bareDoIgnoreRedirects
+// returns a *RedirectionError.
+//
+// The provided ctx must be non-nil, if it is nil an error is returned. If it is
+// canceled or times out, ctx.Err() will be returned.
+func (c *Client) bareDoIgnoreRedirects(ctx context.Context, req *http.Request) (*Response, error) {
+	return c.bareDo(ctx, c.clientIgnoreRedirects, req)
+}
+
+var errInvalidLocation = errors.New("invalid or empty Location header in redirection response")
+
+// bareDoUntilFound has the exact same behavior as BareDo but only follows 301s, up to maxRedirects times. If it receives
+// a 302, it will parse the Location header into a *url.URL and return that.
+// This is useful for endpoints that return a 302 in successful cases but still might return 301s for
+// permanent redirections.
+//
+// The provided ctx must be non-nil, if it is nil an error is returned. If it is
+// canceled or times out, ctx.Err() will be returned.
+func (c *Client) bareDoUntilFound(ctx context.Context, req *http.Request, maxRedirects int) (*url.URL, *Response, error) {
+	response, err := c.bareDoIgnoreRedirects(ctx, req)
+	if err != nil {
+		var rerr *RedirectionError
+		if errors.As(err, &rerr) {
+			// If we receive a 302, transform potential relative locations into absolute and return it.
+			if rerr.StatusCode == http.StatusFound {
+				if rerr.Location == nil {
+					return nil, nil, errInvalidLocation
+				}
+				newURL := c.BaseURL.ResolveReference(rerr.Location)
+				return newURL, response, nil
+			}
+			// If permanent redirect response is returned, follow it
+			if maxRedirects > 0 && rerr.StatusCode == http.StatusMovedPermanently {
+				if rerr.Location == nil {
+					return nil, nil, errInvalidLocation
+				}
+				newURL := c.BaseURL.ResolveReference(rerr.Location)
+				newRequest := req.Clone(ctx)
+				newRequest.URL = newURL
+				return c.bareDoUntilFound(ctx, newRequest, maxRedirects-1)
+			}
+			// If we reached the maximum amount of redirections, return an error
+			if maxRedirects <= 0 && rerr.StatusCode == http.StatusMovedPermanently {
+				return nil, response, fmt.Errorf("reached the maximum amount of redirections: %w", err)
+			}
+			return nil, response, fmt.Errorf("unexpected redirection response: %w", err)
+		}
+	}
+
+	// If we don't receive a redirection, forward the response and potential error
+	return nil, response, err
 }
 
 // Do sends an API request and returns the API response. The API response is
@@ -920,7 +1053,7 @@ func (c *Client) BareDo(ctx context.Context, req *http.Request) (*Response, erro
 //
 // The provided ctx must be non-nil, if it is nil an error is returned. If it
 // is canceled or times out, ctx.Err() will be returned.
-func (c *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*Response, error) {
+func (c *Client) Do(ctx context.Context, req *http.Request, v any) (*Response, error) {
 	resp, err := c.BareDo(ctx, req)
 	if err != nil {
 		return resp, err
@@ -1033,7 +1166,8 @@ GitHub API docs: https://docs.github.com/rest/#client-errors
 type ErrorResponse struct {
 	Response *http.Response `json:"-"`       // HTTP response that caused this error
 	Message  string         `json:"message"` // error message
-	Errors   []Error        `json:"errors"`  // more detail on individual errors
+	//nolint:sliceofpointers
+	Errors []Error `json:"errors"` // more detail on individual errors
 	// Block is only populated on certain types of errors such as code 451.
 	Block *ErrorBlock `json:"block,omitempty"`
 	// Most errors will also include a documentation_url field pointing
@@ -1052,13 +1186,13 @@ type ErrorBlock struct {
 
 func (r *ErrorResponse) Error() string {
 	if r.Response != nil && r.Response.Request != nil {
-		return fmt.Sprintf("%v %v: %d %v %+v",
+		return fmt.Sprintf("%v %v: %v %v %+v",
 			r.Response.Request.Method, sanitizeURL(r.Response.Request.URL),
 			r.Response.StatusCode, r.Message, r.Errors)
 	}
 
 	if r.Response != nil {
-		return fmt.Sprintf("%d %v %+v", r.Response.StatusCode, r.Message, r.Errors)
+		return fmt.Sprintf("%v %v %+v", r.Response.StatusCode, r.Message, r.Errors)
 	}
 
 	return fmt.Sprintf("%v %+v", r.Message, r.Errors)
@@ -1066,8 +1200,8 @@ func (r *ErrorResponse) Error() string {
 
 // Is returns whether the provided error equals this error.
 func (r *ErrorResponse) Is(target error) bool {
-	v, ok := target.(*ErrorResponse)
-	if !ok {
+	var v *ErrorResponse
+	if !errors.As(target, &v) {
 		return false
 	}
 
@@ -1124,15 +1258,15 @@ type RateLimitError struct {
 }
 
 func (r *RateLimitError) Error() string {
-	return fmt.Sprintf("%v %v: %d %v %v",
+	return fmt.Sprintf("%v %v: %v %v %v",
 		r.Response.Request.Method, sanitizeURL(r.Response.Request.URL),
 		r.Response.StatusCode, r.Message, formatRateReset(time.Until(r.Rate.Reset.Time)))
 }
 
 // Is returns whether the provided error equals this error.
 func (r *RateLimitError) Is(target error) bool {
-	v, ok := target.(*RateLimitError)
-	if !ok {
+	var v *RateLimitError
+	if !errors.As(target, &v) {
 		return false
 	}
 
@@ -1158,8 +1292,8 @@ func (*AcceptedError) Error() string {
 
 // Is returns whether the provided error equals this error.
 func (ae *AcceptedError) Is(target error) bool {
-	v, ok := target.(*AcceptedError)
-	if !ok {
+	var v *AcceptedError
+	if !errors.As(target, &v) {
 		return false
 	}
 	return bytes.Equal(ae.Raw, v.Raw)
@@ -1178,21 +1312,55 @@ type AbuseRateLimitError struct {
 }
 
 func (r *AbuseRateLimitError) Error() string {
-	return fmt.Sprintf("%v %v: %d %v",
+	return fmt.Sprintf("%v %v: %v %v",
 		r.Response.Request.Method, sanitizeURL(r.Response.Request.URL),
 		r.Response.StatusCode, r.Message)
 }
 
 // Is returns whether the provided error equals this error.
 func (r *AbuseRateLimitError) Is(target error) bool {
-	v, ok := target.(*AbuseRateLimitError)
-	if !ok {
+	var v *AbuseRateLimitError
+	if !errors.As(target, &v) {
 		return false
 	}
 
 	return r.Message == v.Message &&
 		r.RetryAfter == v.RetryAfter &&
 		compareHTTPResponse(r.Response, v.Response)
+}
+
+// RedirectionError represents a response that returned a redirect status code:
+//
+//	301 (Moved Permanently)
+//	302 (Found)
+//	303 (See Other)
+//	307 (Temporary Redirect)
+//	308 (Permanent Redirect)
+//
+// If there was a valid Location header included, it will be parsed to a URL. You should use
+// `BaseURL.ResolveReference()` to enrich it with the correct hostname where needed.
+type RedirectionError struct {
+	Response   *http.Response // HTTP response that caused this error
+	StatusCode int
+	Location   *url.URL // location header of the redirection if present
+}
+
+func (r *RedirectionError) Error() string {
+	return fmt.Sprintf("%v %v: %v location %v",
+		r.Response.Request.Method, sanitizeURL(r.Response.Request.URL),
+		r.StatusCode, sanitizeURL(r.Location))
+}
+
+// Is returns whether the provided error equals this error.
+func (r *RedirectionError) Is(target error) bool {
+	var v *RedirectionError
+	if !errors.As(target, &v) {
+		return false
+	}
+
+	return r.StatusCode == v.StatusCode &&
+		(r.Location == v.Location || // either both locations are nil or exactly the same pointer
+			r.Location != nil && v.Location != nil && r.Location.String() == v.Location.String()) // or they are both not nil and marshaled identically
 }
 
 // sanitizeURL redacts the client_secret parameter from the URL which may be
@@ -1243,6 +1411,7 @@ func (e *Error) Error() string {
 		e.Code, e.Field, e.Resource)
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (e *Error) UnmarshalJSON(data []byte) error {
 	type aliasError Error // avoid infinite recursion by using type alias.
 	if err := json.Unmarshal(data, (*aliasError)(e)); err != nil {
@@ -1255,11 +1424,12 @@ func (e *Error) UnmarshalJSON(data []byte) error {
 // present. A response is considered an error if it has a status code outside
 // the 200 range or equal to 202 Accepted.
 // API error responses are expected to have response
-// body, and a JSON response body that maps to ErrorResponse.
+// body, and a JSON response body that maps to [ErrorResponse].
 //
-// The error type will be *RateLimitError for rate limit exceeded errors,
-// *AcceptedError for 202 Accepted status codes,
-// and *TwoFactorAuthError for two-factor authentication errors.
+// The error type will be *[RateLimitError] for rate limit exceeded errors,
+// *[AcceptedError] for 202 Accepted status codes,
+// *[TwoFactorAuthError] for two-factor authentication errors,
+// and *[RedirectionError] for redirect status codes (only happens when ignoring redirections).
 func CheckResponse(r *http.Response) error {
 	if r.StatusCode == http.StatusAccepted {
 		return &AcceptedError{}
@@ -1284,13 +1454,18 @@ func CheckResponse(r *http.Response) error {
 	switch {
 	case r.StatusCode == http.StatusUnauthorized && strings.HasPrefix(r.Header.Get(headerOTP), "required"):
 		return (*TwoFactorAuthError)(errorResponse)
-	case r.StatusCode == http.StatusForbidden && r.Header.Get(headerRateRemaining) == "0":
+	// Primary rate limit exceeded: GitHub returns 403 or 429 with X-RateLimit-Remaining: 0
+	// See: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
+	case (r.StatusCode == http.StatusForbidden || r.StatusCode == http.StatusTooManyRequests) &&
+		r.Header.Get(HeaderRateRemaining) == "0":
 		return &RateLimitError{
 			Rate:     parseRate(r),
 			Response: errorResponse.Response,
 			Message:  errorResponse.Message,
 		}
-	case r.StatusCode == http.StatusForbidden &&
+	// Secondary rate limit exceeded: GitHub returns 403 or 429 with specific documentation_url
+	// See: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api#about-secondary-rate-limits
+	case (r.StatusCode == http.StatusForbidden || r.StatusCode == http.StatusTooManyRequests) &&
 		(strings.HasSuffix(errorResponse.DocumentationURL, "#abuse-rate-limits") ||
 			strings.HasSuffix(errorResponse.DocumentationURL, "secondary-rate-limits")):
 		abuseRateLimitError := &AbuseRateLimitError{
@@ -1301,6 +1476,25 @@ func CheckResponse(r *http.Response) error {
 			abuseRateLimitError.RetryAfter = retryAfter
 		}
 		return abuseRateLimitError
+	// Check that the status code is a redirection and return a sentinel error that can be used to handle special cases
+	// where 302 is considered a successful result.
+	// This should never happen with the default `CheckRedirect`, because it would return a `url.Error` that should be handled upstream.
+	case r.StatusCode == http.StatusMovedPermanently ||
+		r.StatusCode == http.StatusFound ||
+		r.StatusCode == http.StatusSeeOther ||
+		r.StatusCode == http.StatusTemporaryRedirect ||
+		r.StatusCode == http.StatusPermanentRedirect:
+
+		locationStr := r.Header.Get("Location")
+		var location *url.URL
+		if locationStr != "" {
+			location, _ = url.Parse(locationStr)
+		}
+		return &RedirectionError{
+			Response:   errorResponse.Response,
+			StatusCode: r.StatusCode,
+			Location:   location,
+		}
 	default:
 		return errorResponse
 	}
@@ -1316,7 +1510,8 @@ func parseBoolResponse(err error) (bool, error) {
 		return true, nil
 	}
 
-	if err, ok := err.(*ErrorResponse); ok && err.Response.StatusCode == http.StatusNotFound {
+	var rerr *ErrorResponse
+	if errors.As(err, &rerr) && rerr.Response.StatusCode == http.StatusNotFound {
 		// Simply false. In this one case, we do not pass the error through.
 		return false, nil
 	}
@@ -1325,6 +1520,7 @@ func parseBoolResponse(err error) (bool, error) {
 	return false, err
 }
 
+// RateLimitCategory represents the enumeration of rate limit categories.
 type RateLimitCategory uint8
 
 const (
@@ -1339,6 +1535,7 @@ const (
 	DependencySnapshotsCategory
 	CodeSearchCategory
 	AuditLogCategory
+	DependencySBOMCategory
 
 	Categories // An array of this length will be able to contain all rate limit categories.
 )
@@ -1354,7 +1551,7 @@ func GetRateLimitCategory(method, path string) RateLimitCategory {
 
 	// https://docs.github.com/en/rest/search/search#search-code
 	case strings.HasPrefix(path, "/search/code") &&
-		method == http.MethodGet:
+		method == "GET":
 		return CodeSearchCategory
 
 	case strings.HasPrefix(path, "/search/"):
@@ -1363,13 +1560,13 @@ func GetRateLimitCategory(method, path string) RateLimitCategory {
 		return GraphqlCategory
 	case strings.HasPrefix(path, "/app-manifests/") &&
 		strings.HasSuffix(path, "/conversions") &&
-		method == http.MethodPost:
+		method == "POST":
 		return IntegrationManifestCategory
 
 	// https://docs.github.com/rest/migrations/source-imports#start-an-import
 	case strings.HasPrefix(path, "/repos/") &&
 		strings.HasSuffix(path, "/import") &&
-		method == http.MethodPut:
+		method == "PUT":
 		return SourceImportCategory
 
 	// https://docs.github.com/rest/code-scanning#upload-an-analysis-as-sarif-data
@@ -1383,12 +1580,17 @@ func GetRateLimitCategory(method, path string) RateLimitCategory {
 	// https://docs.github.com/en/rest/dependency-graph/dependency-submission#create-a-snapshot-of-dependencies-for-a-repository
 	case strings.HasPrefix(path, "/repos/") &&
 		strings.HasSuffix(path, "/dependency-graph/snapshots") &&
-		method == http.MethodPost:
+		method == "POST":
 		return DependencySnapshotsCategory
 
 	// https://docs.github.com/en/enterprise-cloud@latest/rest/orgs/orgs?apiVersion=2022-11-28#get-the-audit-log-for-an-organization
 	case strings.HasSuffix(path, "/audit-log"):
 		return AuditLogCategory
+
+	// https://docs.github.com/en/rest/dependency-graph/sboms?apiVersion=2022-11-28#export-a-software-bill-of-materials-sbom-for-a-repository
+	case strings.HasPrefix(path, "/repos/") &&
+		strings.HasSuffix(path, "/dependency-graph/sbom"):
+		return DependencySBOMCategory
 	}
 }
 
@@ -1430,8 +1632,8 @@ that need to use a higher rate limit associated with your OAuth application.
 This will add the client id and secret as a base64-encoded string in the format
 ClientID:ClientSecret and apply it as an "Authorization": "Basic" header.
 
-See https://docs.github.com/rest/#unauthenticated-rate-limited-requests for
-more information.
+See https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api#primary-rate-limit-for-oauth-apps
+for more information.
 */
 type UnauthenticatedRateLimitedTransport struct {
 	// ClientID is the GitHub OAuth client ID of the current application, which
@@ -1525,9 +1727,9 @@ func formatRateReset(d time.Duration) string {
 
 	var timeString string
 	if minutes > 0 {
-		timeString = fmt.Sprintf("%dm%02ds", minutes, seconds)
+		timeString = fmt.Sprintf("%vm%02ds", minutes, seconds)
 	} else {
-		timeString = fmt.Sprintf("%ds", seconds)
+		timeString = fmt.Sprintf("%vs", seconds)
 	}
 
 	if isNegative {
@@ -1579,20 +1781,34 @@ func (c *Client) roundTripWithOptionalFollowRedirect(ctx context.Context, u stri
 	return resp, err
 }
 
+// Ptr is a helper routine that allocates a new T value
+// to store v and returns a pointer to it.
+func Ptr[T any](v T) *T {
+	return &v
+}
+
 // Bool is a helper routine that allocates a new bool value
 // to store v and returns a pointer to it.
+//
+// Deprecated: use Ptr instead.
 func Bool(v bool) *bool { return &v }
 
 // Int is a helper routine that allocates a new int value
 // to store v and returns a pointer to it.
+//
+// Deprecated: use Ptr instead.
 func Int(v int) *int { return &v }
 
 // Int64 is a helper routine that allocates a new int64 value
 // to store v and returns a pointer to it.
+//
+// Deprecated: use Ptr instead.
 func Int64(v int64) *int64 { return &v }
 
 // String is a helper routine that allocates a new string value
 // to store v and returns a pointer to it.
+//
+// Deprecated: use Ptr instead.
 func String(v string) *string { return &v }
 
 // roundTripperFunc creates a RoundTripper (transport).
@@ -1600,4 +1816,19 @@ type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return fn(r)
+}
+
+var runIDFromURLRE = regexp.MustCompile(`repos/.*/actions/runs/(\d+)/deployment_protection_rule$`)
+
+// GetRunID is a Helper Function used to extract the workflow RunID from the *DeploymentProtectionRuleEvent.DeploymentCallBackURL.
+func (e *DeploymentProtectionRuleEvent) GetRunID() (int64, error) {
+	match := runIDFromURLRE.FindStringSubmatch(*e.DeploymentCallbackURL)
+	if len(match) != 2 {
+		return -1, errors.New("no match")
+	}
+	runID, err := strconv.ParseInt(match[1], 10, 64)
+	if err != nil {
+		return -1, err
+	}
+	return runID, nil
 }

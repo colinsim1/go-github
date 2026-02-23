@@ -29,7 +29,7 @@ type Stargazer struct {
 //
 //meta:operation GET /repos/{owner}/{repo}/stargazers
 func (s *ActivityService) ListStargazers(ctx context.Context, owner, repo string, opts *ListOptions) ([]*Stargazer, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/stargazers", owner, repo)
+	u := fmt.Sprintf("repos/%v/%v/stargazers", owner, repo)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -40,8 +40,7 @@ func (s *ActivityService) ListStargazers(ctx context.Context, owner, repo string
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when this API fully launches
-	req.Header.Set("Accept", mediaTypeStarringPreview)
+	req.Header.Set("Accept", mediaTypeStarring)
 
 	var stargazers []*Stargazer
 	resp, err := s.client.Do(ctx, req, &stargazers)
@@ -60,7 +59,7 @@ type ActivityListStarredOptions struct {
 	Sort string `url:"sort,omitempty"`
 
 	// Direction in which to sort repositories. Possible values are: asc, desc.
-	// Default is "asc" when sort is "full_name", otherwise default is "desc".
+	// Default is "asc" when sort is "full_name"; otherwise, default is "desc".
 	Direction string `url:"direction,omitempty"`
 
 	ListOptions
@@ -70,6 +69,7 @@ type ActivityListStarredOptions struct {
 // will list the starred repositories for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/activity/starring#list-repositories-starred-by-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/activity/starring#list-repositories-starred-by-the-authenticated-user
 //
 //meta:operation GET /user/starred
@@ -91,8 +91,7 @@ func (s *ActivityService) ListStarred(ctx context.Context, user string, opts *Ac
 		return nil, nil, err
 	}
 
-	// TODO: remove custom Accept header when APIs fully launch
-	acceptHeaders := []string{mediaTypeStarringPreview, mediaTypeTopicsPreview}
+	acceptHeaders := []string{mediaTypeStarring, mediaTypeTopicsPreview}
 	req.Header.Set("Accept", strings.Join(acceptHeaders, ", "))
 
 	var repos []*StarredRepository

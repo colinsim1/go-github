@@ -6,11 +6,9 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -28,15 +26,15 @@ func TestRepositoriesService_ListHookDeliveries(t *testing.T) {
 
 	opt := &ListCursorOptions{Cursor: "v1_12077215967"}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	hooks, _, err := client.Repositories.ListHookDeliveries(ctx, "o", "r", 1, opt)
 	if err != nil {
 		t.Errorf("Repositories.ListHookDeliveries returned error: %v", err)
 	}
 
-	want := []*HookDelivery{{ID: Int64(1)}, {ID: Int64(2)}}
+	want := []*HookDelivery{{ID: Ptr(int64(1))}, {ID: Ptr(int64(2))}}
 	if d := cmp.Diff(hooks, want); d != "" {
-		t.Errorf("Repositories.ListHooks want (-), got (+):\n%s", d)
+		t.Errorf("Repositories.ListHooks want (-), got (+):\n%v", d)
 	}
 
 	const methodName = "ListHookDeliveries"
@@ -58,7 +56,7 @@ func TestRepositoriesService_ListHookDeliveries_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.ListHookDeliveries(ctx, "%", "%", 1, nil)
 	testURLParseError(t, err)
 }
@@ -72,13 +70,13 @@ func TestRepositoriesService_GetHookDelivery(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	hook, _, err := client.Repositories.GetHookDelivery(ctx, "o", "r", 1, 1)
 	if err != nil {
 		t.Errorf("Repositories.GetHookDelivery returned error: %v", err)
 	}
 
-	want := &HookDelivery{ID: Int64(1)}
+	want := &HookDelivery{ID: Ptr(int64(1))}
 	if !cmp.Equal(hook, want) {
 		t.Errorf("Repositories.GetHookDelivery returned %+v, want %+v", hook, want)
 	}
@@ -102,7 +100,7 @@ func TestRepositoriesService_GetHookDelivery_invalidOwner(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Repositories.GetHookDelivery(ctx, "%", "%", 1, 1)
 	testURLParseError(t, err)
 }
@@ -116,13 +114,13 @@ func TestRepositoriesService_RedeliverHookDelivery(t *testing.T) {
 		fmt.Fprint(w, `{"id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	hook, _, err := client.Repositories.RedeliverHookDelivery(ctx, "o", "r", 1, 1)
 	if err != nil {
 		t.Errorf("Repositories.RedeliverHookDelivery returned error: %v", err)
 	}
 
-	want := &HookDelivery{ID: Int64(1)}
+	want := &HookDelivery{ID: Ptr(int64(1))}
 	if !cmp.Equal(hook, want) {
 		t.Errorf("Repositories.RedeliverHookDelivery returned %+v, want %+v", hook, want)
 	}
@@ -142,7 +140,7 @@ func TestRepositoriesService_RedeliverHookDelivery(t *testing.T) {
 	})
 }
 
-var hookDeliveryPayloadTypeToStruct = map[string]interface{}{
+var hookDeliveryPayloadTypeToStruct = map[string]any{
 	"check_run":                      &CheckRunEvent{},
 	"check_suite":                    &CheckSuiteEvent{},
 	"code_scanning_alert":            &CodeScanningAlertEvent{},
@@ -174,9 +172,6 @@ var hookDeliveryPayloadTypeToStruct = map[string]interface{}{
 	"package":                        &PackageEvent{},
 	"page_build":                     &PageBuildEvent{},
 	"ping":                           &PingEvent{},
-	"project":                        &ProjectEvent{},
-	"project_card":                   &ProjectCardEvent{},
-	"project_column":                 &ProjectColumnEvent{},
 	"projects_v2":                    &ProjectV2Event{},
 	"projects_v2_item":               &ProjectV2ItemEvent{},
 	"public":                         &PublicEvent{},
@@ -186,6 +181,7 @@ var hookDeliveryPayloadTypeToStruct = map[string]interface{}{
 	"pull_request_review_thread":     &PullRequestReviewThreadEvent{},
 	"pull_request_target":            &PullRequestTargetEvent{},
 	"push":                           &PushEvent{},
+	"registry_package":               &RegistryPackageEvent{},
 	"release":                        &ReleaseEvent{},
 	"repository":                     &RepositoryEvent{},
 	"repository_dispatch":            &RepositoryDispatchEvent{},
@@ -208,7 +204,6 @@ var hookDeliveryPayloadTypeToStruct = map[string]interface{}{
 func TestHookDelivery_ParsePayload(t *testing.T) {
 	t.Parallel()
 	for evt, obj := range hookDeliveryPayloadTypeToStruct {
-		evt, obj := evt, obj
 		t.Run(evt, func(t *testing.T) {
 			t.Parallel()
 			bs, err := json.Marshal(obj)
@@ -219,7 +214,7 @@ func TestHookDelivery_ParsePayload(t *testing.T) {
 			p := json.RawMessage(bs)
 
 			d := &HookDelivery{
-				Event: String(evt),
+				Event: Ptr(evt),
 				Request: &HookRequest{
 					RawPayload: &p,
 				},
@@ -230,7 +225,7 @@ func TestHookDelivery_ParsePayload(t *testing.T) {
 				t.Error(err)
 			}
 
-			if !reflect.DeepEqual(obj, got) {
+			if !cmp.Equal(obj, got) {
 				t.Errorf("want %T %v, got %T %v", obj, obj, got, got)
 			}
 		})
@@ -242,7 +237,7 @@ func TestHookDelivery_ParsePayload_invalidEvent(t *testing.T) {
 	p := json.RawMessage(nil)
 
 	d := &HookDelivery{
-		Event: String("some_invalid_event"),
+		Event: Ptr("some_invalid_event"),
 		Request: &HookRequest{
 			RawPayload: &p,
 		},
@@ -259,7 +254,7 @@ func TestHookDelivery_ParsePayload_invalidPayload(t *testing.T) {
 	p := json.RawMessage([]byte(`{"check_run":{"id":"invalid"}}`))
 
 	d := &HookDelivery{
-		Event: String("check_run"),
+		Event: Ptr("check_run"),
 		Request: &HookRequest{
 			RawPayload: &p,
 		},
@@ -297,6 +292,41 @@ func TestHookRequest_Marshal(t *testing.T) {
 	testJSONMarshal(t, r, want)
 }
 
+func TestHookRequest_GetHeader(t *testing.T) {
+	t.Parallel()
+
+	header := make(map[string]string)
+	header["key1"] = "value1"
+	header["Key+2"] = "value2"
+	header["kEy-3"] = "value3"
+	header["KEY_4"] = "value4"
+
+	r := &HookRequest{
+		Headers: header,
+	}
+
+	// Checking positive cases
+	testPrefixes := []string{"key", "Key", "kEy", "KEY"}
+	for hdrKey, hdrValue := range header {
+		for _, prefix := range testPrefixes {
+			key := prefix + hdrKey[3:]
+			if val := r.GetHeader(key); val != hdrValue {
+				t.Errorf("GetHeader(%q) is not working: %q != %q", key, val, hdrValue)
+			}
+		}
+	}
+
+	// Checking negative case
+	key := "asd"
+	if val := r.GetHeader(key); val != "" {
+		t.Errorf("GetHeader(%q) should return empty value: %q != %q", key, val, "")
+	}
+	key = "kay1"
+	if val := r.GetHeader(key); val != "" {
+		t.Errorf("GetHeader(%q) should return empty value: %q != %q", key, val, "")
+	}
+}
+
 func TestHookResponse_Marshal(t *testing.T) {
 	t.Parallel()
 	testJSONMarshal(t, &HookResponse{}, "{}")
@@ -323,6 +353,41 @@ func TestHookResponse_Marshal(t *testing.T) {
 	testJSONMarshal(t, r, want)
 }
 
+func TestHookResponse_GetHeader(t *testing.T) {
+	t.Parallel()
+
+	header := make(map[string]string)
+	header["key1"] = "value1"
+	header["Key+2"] = "value2"
+	header["kEy-3"] = "value3"
+	header["KEY_4"] = "value4"
+
+	r := &HookResponse{
+		Headers: header,
+	}
+
+	// Checking positive cases
+	testPrefixes := []string{"key", "Key", "kEy", "KEY"}
+	for hdrKey, hdrValue := range header {
+		for _, prefix := range testPrefixes {
+			key := prefix + hdrKey[3:]
+			if val := r.GetHeader(key); val != hdrValue {
+				t.Errorf("GetHeader(%q) is not working: %q != %q", key, val, hdrValue)
+			}
+		}
+	}
+
+	// Checking negative case
+	key := "asd"
+	if val := r.GetHeader(key); val != "" {
+		t.Errorf("GetHeader(%q) should return empty value: %q != %q", key, val, "")
+	}
+	key = "kay1"
+	if val := r.GetHeader(key); val != "" {
+		t.Errorf("GetHeader(%q) should return empty value: %q != %q", key, val, "")
+	}
+}
+
 func TestHookDelivery_Marshal(t *testing.T) {
 	t.Parallel()
 	testJSONMarshal(t, &HookDelivery{}, "{}")
@@ -333,17 +398,17 @@ func TestHookDelivery_Marshal(t *testing.T) {
 	jsonMsg, _ := json.Marshal(&header)
 
 	r := &HookDelivery{
-		ID:             Int64(1),
-		GUID:           String("guid"),
+		ID:             Ptr(int64(1)),
+		GUID:           Ptr("guid"),
 		DeliveredAt:    &Timestamp{referenceTime},
-		Redelivery:     Bool(true),
-		Duration:       Float64(1),
-		Status:         String("guid"),
-		StatusCode:     Int(1),
-		Event:          String("guid"),
-		Action:         String("guid"),
-		InstallationID: Int64(1),
-		RepositoryID:   Int64(1),
+		Redelivery:     Ptr(true),
+		Duration:       Ptr(1.0),
+		Status:         Ptr("guid"),
+		StatusCode:     Ptr(1),
+		Event:          Ptr("guid"),
+		Action:         Ptr("guid"),
+		InstallationID: Ptr(int64(1)),
+		RepositoryID:   Ptr(int64(1)),
 		Request: &HookRequest{
 			Headers:    header,
 			RawPayload: (*json.RawMessage)(&jsonMsg),

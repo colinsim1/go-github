@@ -25,7 +25,7 @@ func TestCodespacesService_ListSecrets(t *testing.T) {
 		methodName string
 	}
 	opts := &ListOptions{Page: 2, PerPage: 2}
-	tests := []test{
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
@@ -77,14 +77,13 @@ func TestCodespacesService_ListSecrets(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			tt.handleFunc(mux)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			secrets, _, err := tt.call(ctx, client)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
@@ -93,8 +92,8 @@ func TestCodespacesService_ListSecrets(t *testing.T) {
 			want := &Secrets{
 				TotalCount: 4,
 				Secrets: []*Secret{
-					{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
-					{Name: "B", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
+					{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
+					{Name: "B", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
 				},
 			}
 			if !cmp.Equal(secrets, want) {
@@ -128,7 +127,7 @@ func TestCodespacesService_GetSecret(t *testing.T) {
 		badCall    func(context.Context, *Client) (*Secret, *Response, error)
 		methodName string
 	}
-	tests := []test{
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
@@ -177,20 +176,19 @@ func TestCodespacesService_GetSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			tt.handleFunc(mux)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			secret, _, err := tt.call(ctx, client)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
 			}
 
-			want := &Secret{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}}
+			want := &Secret{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}}
 			if !cmp.Equal(secret, want) {
 				t.Errorf("Codespaces.%v returned %+v, want %+v", tt.methodName, secret, want)
 			}
@@ -222,7 +220,7 @@ func TestCodespacesService_CreateOrUpdateSecret(t *testing.T) {
 		badCall    func(context.Context, *Client, *EncryptedSecret) (*Response, error)
 		methodName string
 	}
-	tests := []test{
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
@@ -235,6 +233,9 @@ func TestCodespacesService_CreateOrUpdateSecret(t *testing.T) {
 			},
 			call: func(ctx context.Context, client *Client, e *EncryptedSecret) (*Response, error) {
 				return client.Codespaces.CreateOrUpdateUserSecret(ctx, e)
+			},
+			badCall: func(ctx context.Context, client *Client, _ *EncryptedSecret) (*Response, error) {
+				return client.Codespaces.CreateOrUpdateUserSecret(ctx, nil)
 			},
 			methodName: "CreateOrUpdateUserSecret",
 		},
@@ -277,7 +278,6 @@ func TestCodespacesService_CreateOrUpdateSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
@@ -289,7 +289,7 @@ func TestCodespacesService_CreateOrUpdateSecret(t *testing.T) {
 				EncryptedValue: "QIv=",
 				KeyID:          "1234",
 			}
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := tt.call(ctx, client, input)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
@@ -318,11 +318,11 @@ func TestCodespacesService_DeleteSecret(t *testing.T) {
 		badCall    func(context.Context, *Client) (*Response, error)
 		methodName string
 	}
-	tests := []test{
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/user/codespaces/secrets/NAME", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/user/codespaces/secrets/NAME", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "DELETE")
 				})
 			},
@@ -334,7 +334,7 @@ func TestCodespacesService_DeleteSecret(t *testing.T) {
 		{
 			name: "Org",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "DELETE")
 				})
 			},
@@ -349,7 +349,7 @@ func TestCodespacesService_DeleteSecret(t *testing.T) {
 		{
 			name: "Repo",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/repos/o/r/codespaces/secrets/NAME", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/repos/o/r/codespaces/secrets/NAME", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "DELETE")
 				})
 			},
@@ -364,14 +364,13 @@ func TestCodespacesService_DeleteSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			tt.handleFunc(mux)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := tt.call(ctx, client)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
@@ -401,7 +400,7 @@ func TestCodespacesService_GetPublicKey(t *testing.T) {
 		methodName string
 	}
 
-	tests := []test{
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
@@ -450,20 +449,19 @@ func TestCodespacesService_GetPublicKey(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			tt.handleFunc(mux)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			key, _, err := tt.call(ctx, client)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
 			}
 
-			want := &PublicKey{KeyID: String("1234"), Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
+			want := &PublicKey{KeyID: Ptr("1234"), Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
 			if !cmp.Equal(key, want) {
 				t.Errorf("Codespaces.%v returned %+v, want %+v", tt.methodName, key, want)
 			}
@@ -496,13 +494,13 @@ func TestCodespacesService_ListSelectedReposForSecret(t *testing.T) {
 		methodName string
 	}
 	opts := &ListOptions{Page: 2, PerPage: 2}
-	tests := []test{
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
 				mux.HandleFunc("/user/codespaces/secrets/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "GET")
-					fmt.Fprintf(w, `{"total_count":1,"repositories":[{"id":1}]}`)
+					fmt.Fprint(w, `{"total_count":1,"repositories":[{"id":1}]}`)
 				})
 			},
 			call: func(ctx context.Context, client *Client) (*SelectedReposList, *Response, error) {
@@ -515,7 +513,7 @@ func TestCodespacesService_ListSelectedReposForSecret(t *testing.T) {
 			handleFunc: func(mux *http.ServeMux) {
 				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "GET")
-					fmt.Fprintf(w, `{"total_count":1,"repositories":[{"id":1}]}`)
+					fmt.Fprint(w, `{"total_count":1,"repositories":[{"id":1}]}`)
 				})
 			},
 			call: func(ctx context.Context, client *Client) (*SelectedReposList, *Response, error) {
@@ -529,23 +527,22 @@ func TestCodespacesService_ListSelectedReposForSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			tt.handleFunc(mux)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			repos, _, err := tt.call(ctx, client)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
 			}
 
 			want := &SelectedReposList{
-				TotalCount: Int(1),
+				TotalCount: Ptr(1),
 				Repositories: []*Repository{
-					{ID: Int64(1)},
+					{ID: Ptr(int64(1))},
 				},
 			}
 
@@ -581,11 +578,11 @@ func TestCodespacesService_SetSelectedReposForSecret(t *testing.T) {
 		methodName string
 	}
 	ids := SelectedRepoIDs{64780797}
-	tests := []test{
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/user/codespaces/secrets/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/user/codespaces/secrets/NAME/repositories", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "PUT")
 					testHeader(t, r, "Content-Type", "application/json")
 					testBody(t, r, `{"selected_repository_ids":[64780797]}`+"\n")
@@ -599,7 +596,7 @@ func TestCodespacesService_SetSelectedReposForSecret(t *testing.T) {
 		{
 			name: "Org",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME/repositories", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "PUT")
 					testHeader(t, r, "Content-Type", "application/json")
 					testBody(t, r, `{"selected_repository_ids":[64780797]}`+"\n")
@@ -616,14 +613,13 @@ func TestCodespacesService_SetSelectedReposForSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			tt.handleFunc(mux)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := tt.call(ctx, client)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
@@ -652,24 +648,27 @@ func TestCodespacesService_AddSelectedReposForSecret(t *testing.T) {
 		badCall    func(context.Context, *Client) (*Response, error)
 		methodName string
 	}
-	repo := &Repository{ID: Int64(1234)}
-	tests := []test{
+	repo := &Repository{ID: Ptr(int64(1234))}
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/user/codespaces/secrets/NAME/repositories/1234", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/user/codespaces/secrets/NAME/repositories/1234", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "PUT")
 				})
 			},
 			call: func(ctx context.Context, client *Client) (*Response, error) {
 				return client.Codespaces.AddSelectedRepoToUserSecret(ctx, "NAME", repo)
 			},
+			badCall: func(ctx context.Context, client *Client) (*Response, error) {
+				return client.Codespaces.AddSelectedRepoToUserSecret(ctx, "NAME", &Repository{ID: nil})
+			},
 			methodName: "AddSelectedRepoToUserSecret",
 		},
 		{
 			name: "Org",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME/repositories/1234", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME/repositories/1234", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "PUT")
 				})
 			},
@@ -684,14 +683,13 @@ func TestCodespacesService_AddSelectedReposForSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			tt.handleFunc(mux)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := tt.call(ctx, client)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
@@ -720,24 +718,27 @@ func TestCodespacesService_RemoveSelectedReposFromSecret(t *testing.T) {
 		badCall    func(context.Context, *Client) (*Response, error)
 		methodName string
 	}
-	repo := &Repository{ID: Int64(1234)}
-	tests := []test{
+	repo := &Repository{ID: Ptr(int64(1234))}
+	tests := []*test{
 		{
 			name: "User",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/user/codespaces/secrets/NAME/repositories/1234", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/user/codespaces/secrets/NAME/repositories/1234", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "DELETE")
 				})
 			},
 			call: func(ctx context.Context, client *Client) (*Response, error) {
 				return client.Codespaces.RemoveSelectedRepoFromUserSecret(ctx, "NAME", repo)
 			},
+			badCall: func(ctx context.Context, client *Client) (*Response, error) {
+				return client.Codespaces.RemoveSelectedRepoFromUserSecret(ctx, "NAME", nil)
+			},
 			methodName: "RemoveSelectedRepoFromUserSecret",
 		},
 		{
 			name: "Org",
 			handleFunc: func(mux *http.ServeMux) {
-				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME/repositories/1234", func(w http.ResponseWriter, r *http.Request) {
+				mux.HandleFunc("/orgs/o/codespaces/secrets/NAME/repositories/1234", func(_ http.ResponseWriter, r *http.Request) {
 					testMethod(t, r, "DELETE")
 				})
 			},
@@ -752,14 +753,13 @@ func TestCodespacesService_RemoveSelectedReposFromSecret(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			client, mux, _ := setup(t)
 
 			tt.handleFunc(mux)
 
-			ctx := context.Background()
+			ctx := t.Context()
 			_, err := tt.call(ctx, client)
 			if err != nil {
 				t.Errorf("Codespaces.%v returned error: %v", tt.methodName, err)
@@ -778,43 +778,3 @@ func TestCodespacesService_RemoveSelectedReposFromSecret(t *testing.T) {
 		})
 	}
 }
-
-// func TestActionsService_ListSelectedReposForOrgSecret(t *testing.T) {
-// 	client, mux, _ := setup(t)
-
-// 	mux.HandleFunc("/orgs/o/actions/secrets/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
-// 		testMethod(t, r, "GET")
-// 		fmt.Fprintf(w, `{"total_count":1,"repositories":[{"id":1}]}`)
-// 	})
-
-// 	opts := &ListOptions{Page: 2, PerPage: 2}
-// 	ctx := context.Background()
-// 	repos, _, err := client.Actions.ListSelectedReposForOrgSecret(ctx, "o", "NAME", opts)
-// 	if err != nil {
-// 		t.Errorf("Actions.ListSelectedReposForOrgSecret returned error: %v", err)
-// 	}
-
-// 	want := &SelectedReposList{
-// 		TotalCount: Int(1),
-// 		Repositories: []*Repository{
-// 			{ID: Int64(1)},
-// 		},
-// 	}
-// 	if !cmp.Equal(repos, want) {
-// 		t.Errorf("Actions.ListSelectedReposForOrgSecret returned %+v, want %+v", repos, want)
-// 	}
-
-// 	const methodName = "ListSelectedReposForOrgSecret"
-// 	testBadOptions(t, methodName, func() (err error) {
-// 		_, _, err = client.Actions.ListSelectedReposForOrgSecret(ctx, "\n", "\n", opts)
-// 		return err
-// 	})
-
-// 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-// 		got, resp, err := client.Actions.ListSelectedReposForOrgSecret(ctx, "o", "NAME", opts)
-// 		if got != nil {
-// 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
-// 		}
-// 		return resp, err
-// 	})
-// }

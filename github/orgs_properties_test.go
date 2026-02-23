@@ -6,12 +6,12 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestOrganizationsService_GetAllCustomProperties(t *testing.T) {
@@ -21,31 +21,54 @@ func TestOrganizationsService_GetAllCustomProperties(t *testing.T) {
 	mux.HandleFunc("/orgs/o/properties/schema", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
 		fmt.Fprint(w, `[
-		{
-          "property_name": "name",
-          "value_type": "single_select",
-          "required": true,
-          "default_value": "production",
-          "description": "Prod or dev environment",
-          "allowed_values":[
-            "production",
-            "development"
-          ],
-          "values_editable_by": "org_actors"
-        },
-        {
-          "property_name": "service",
-          "value_type": "string"
-        },
-        {
-          "property_name": "team",
-          "value_type": "string",
-          "description": "Team owning the repository"
-        }
-        ]`)
+  {
+    "property_name": "name",
+    "value_type": "single_select",
+    "required": true,
+    "default_value": "production",
+    "description": "Prod or dev environment",
+    "allowed_values":[
+      "production",
+      "development"
+    ],
+    "values_editable_by": "org_actors"
+  },
+  {
+    "property_name": "test",
+    "value_type": "multi_select",
+    "required": true,
+    "default_value": [
+      "foo",
+      "baz"
+    ],
+    "description": "Prod or dev environment",
+    "allowed_values":[
+      "foo",
+      "bar",
+			"baz"
+    ],
+    "values_editable_by": "org_actors"
+  },
+  {
+    "property_name": "service",
+    "value_type": "string"
+  },
+  {
+    "property_name": "team",
+    "value_type": "string",
+    "description": "Team owning the repository"
+  },
+  {
+    "property_name": "documentation",
+    "value_type": "url",
+    "required": true,
+    "description": "Link to the documentation",
+    "default_value": "https://example.com/docs"
+  }
+]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	properties, _, err := client.Organizations.GetAllCustomProperties(ctx, "o")
 	if err != nil {
 		t.Errorf("Organizations.GetAllCustomProperties returned error: %v", err)
@@ -53,29 +76,46 @@ func TestOrganizationsService_GetAllCustomProperties(t *testing.T) {
 
 	want := []*CustomProperty{
 		{
-			PropertyName:     String("name"),
-			ValueType:        "single_select",
-			Required:         Bool(true),
-			DefaultValue:     String("production"),
-			Description:      String("Prod or dev environment"),
+			PropertyName:     Ptr("name"),
+			ValueType:        PropertyValueTypeSingleSelect,
+			Required:         Ptr(true),
+			DefaultValue:     "production",
+			Description:      Ptr("Prod or dev environment"),
 			AllowedValues:    []string{"production", "development"},
-			ValuesEditableBy: String("org_actors"),
+			ValuesEditableBy: Ptr("org_actors"),
 		},
 		{
-			PropertyName: String("service"),
-			ValueType:    "string",
+			PropertyName:     Ptr("test"),
+			ValueType:        PropertyValueTypeMultiSelect,
+			Required:         Ptr(true),
+			DefaultValue:     []any{"foo", "baz"},
+			Description:      Ptr("Prod or dev environment"),
+			AllowedValues:    []string{"foo", "bar", "baz"},
+			ValuesEditableBy: Ptr("org_actors"),
 		},
 		{
-			PropertyName: String("team"),
-			ValueType:    "string",
-			Description:  String("Team owning the repository"),
+			PropertyName: Ptr("service"),
+			ValueType:    PropertyValueTypeString,
 		},
-	}
-	if !cmp.Equal(properties, want) {
-		t.Errorf("Organizations.GetAllCustomProperties returned %+v, want %+v", properties, want)
+		{
+			PropertyName: Ptr("team"),
+			ValueType:    PropertyValueTypeString,
+			Description:  Ptr("Team owning the repository"),
+		},
+		{
+			PropertyName: Ptr("documentation"),
+			ValueType:    PropertyValueTypeURL,
+			Required:     Ptr(true),
+			Description:  Ptr("Link to the documentation"),
+			DefaultValue: "https://example.com/docs",
+		},
 	}
 
 	const methodName = "GetAllCustomProperties"
+
+	if diff := cmp.Diff(want, properties); diff != "" {
+		t.Errorf("Organizations.%v diff mismatch (-want +got):\n%v", methodName, diff)
+	}
 
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
 		got, resp, err := client.Organizations.GetAllCustomProperties(ctx, "o")
@@ -106,16 +146,16 @@ func TestOrganizationsService_CreateOrUpdateCustomProperties(t *testing.T) {
         ]`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	properties, _, err := client.Organizations.CreateOrUpdateCustomProperties(ctx, "o", []*CustomProperty{
 		{
-			PropertyName: String("name"),
-			ValueType:    "single_select",
-			Required:     Bool(true),
+			PropertyName: Ptr("name"),
+			ValueType:    PropertyValueTypeSingleSelect,
+			Required:     Ptr(true),
 		},
 		{
-			PropertyName: String("service"),
-			ValueType:    "string",
+			PropertyName: Ptr("service"),
+			ValueType:    PropertyValueTypeString,
 		},
 	})
 	if err != nil {
@@ -124,13 +164,13 @@ func TestOrganizationsService_CreateOrUpdateCustomProperties(t *testing.T) {
 
 	want := []*CustomProperty{
 		{
-			PropertyName: String("name"),
-			ValueType:    "single_select",
-			Required:     Bool(true),
+			PropertyName: Ptr("name"),
+			ValueType:    PropertyValueTypeSingleSelect,
+			Required:     Ptr(true),
 		},
 		{
-			PropertyName: String("service"),
-			ValueType:    "string",
+			PropertyName: Ptr("service"),
+			ValueType:    PropertyValueTypeString,
 		},
 	}
 
@@ -169,20 +209,20 @@ func TestOrganizationsService_GetCustomProperty(t *testing.T) {
 	  }`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	property, _, err := client.Organizations.GetCustomProperty(ctx, "o", "name")
 	if err != nil {
 		t.Errorf("Organizations.GetCustomProperty returned error: %v", err)
 	}
 
 	want := &CustomProperty{
-		PropertyName:     String("name"),
-		ValueType:        "single_select",
-		Required:         Bool(true),
-		DefaultValue:     String("production"),
-		Description:      String("Prod or dev environment"),
+		PropertyName:     Ptr("name"),
+		ValueType:        PropertyValueTypeSingleSelect,
+		Required:         Ptr(true),
+		DefaultValue:     "production",
+		Description:      Ptr("Prod or dev environment"),
 		AllowedValues:    []string{"production", "development"},
-		ValuesEditableBy: String("org_actors"),
+		ValuesEditableBy: Ptr("org_actors"),
 	}
 	if !cmp.Equal(property, want) {
 		t.Errorf("Organizations.GetCustomProperty returned %+v, want %+v", property, want)
@@ -219,27 +259,27 @@ func TestOrganizationsService_CreateOrUpdateCustomProperty(t *testing.T) {
 	  }`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	property, _, err := client.Organizations.CreateOrUpdateCustomProperty(ctx, "o", "name", &CustomProperty{
-		ValueType:        "single_select",
-		Required:         Bool(true),
-		DefaultValue:     String("production"),
-		Description:      String("Prod or dev environment"),
+		ValueType:        PropertyValueTypeSingleSelect,
+		Required:         Ptr(true),
+		DefaultValue:     "production",
+		Description:      Ptr("Prod or dev environment"),
 		AllowedValues:    []string{"production", "development"},
-		ValuesEditableBy: String("org_actors"),
+		ValuesEditableBy: Ptr("org_actors"),
 	})
 	if err != nil {
 		t.Errorf("Organizations.CreateOrUpdateCustomProperty returned error: %v", err)
 	}
 
 	want := &CustomProperty{
-		PropertyName:     String("name"),
-		ValueType:        "single_select",
-		Required:         Bool(true),
-		DefaultValue:     String("production"),
-		Description:      String("Prod or dev environment"),
+		PropertyName:     Ptr("name"),
+		ValueType:        PropertyValueTypeSingleSelect,
+		Required:         Ptr(true),
+		DefaultValue:     "production",
+		Description:      Ptr("Prod or dev environment"),
 		AllowedValues:    []string{"production", "development"},
-		ValuesEditableBy: String("org_actors"),
+		ValuesEditableBy: Ptr("org_actors"),
 	}
 	if !cmp.Equal(property, want) {
 		t.Errorf("Organizations.CreateOrUpdateCustomProperty returned %+v, want %+v", property, want)
@@ -260,11 +300,11 @@ func TestOrganizationsService_RemoveCustomProperty(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/orgs/o/properties/schema/name", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/orgs/o/properties/schema/name", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.RemoveCustomProperty(ctx, "o", "name")
 	if err != nil {
 		t.Errorf("Organizations.RemoveCustomProperty returned error: %v", err)
@@ -283,7 +323,11 @@ func TestOrganizationsService_ListCustomPropertyValues(t *testing.T) {
 
 	mux.HandleFunc("/orgs/o/properties/values", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		testFormValues(t, r, values{"page": "1", "per_page": "100"})
+		testFormValues(t, r, values{
+			"page":             "1",
+			"per_page":         "100",
+			"repository_query": "repo:octocat/Hello-World",
+		})
 		fmt.Fprint(w, `[{
 		"repository_id": 1296269,
 		"repository_name": "Hello-World",
@@ -309,10 +353,13 @@ func TestOrganizationsService_ListCustomPropertyValues(t *testing.T) {
         }]`)
 	})
 
-	ctx := context.Background()
-	repoPropertyValues, _, err := client.Organizations.ListCustomPropertyValues(ctx, "o", &ListOptions{
-		Page:    1,
-		PerPage: 100,
+	ctx := t.Context()
+	repoPropertyValues, _, err := client.Organizations.ListCustomPropertyValues(ctx, "o", &ListCustomPropertyValuesOptions{
+		ListOptions: ListOptions{
+			Page:    1,
+			PerPage: 100,
+		},
+		RepositoryQuery: "repo:octocat/Hello-World",
 	})
 	if err != nil {
 		t.Errorf("Organizations.ListCustomPropertyValues returned error: %v", err)
@@ -351,7 +398,7 @@ func TestOrganizationsService_ListCustomPropertyValues(t *testing.T) {
 	const methodName = "ListCustomPropertyValues"
 
 	testBadOptions(t, methodName, func() (err error) {
-		_, _, err = client.Organizations.ListCustomPropertyValues(ctx, "\n", &ListOptions{})
+		_, _, err = client.Organizations.ListCustomPropertyValues(ctx, "\n", &ListCustomPropertyValuesOptions{})
 		return err
 	})
 
@@ -423,7 +470,6 @@ func TestCustomPropertyValue_UnmarshalJSON(t *testing.T) {
 	}
 
 	for name, tc := range tests {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			cpv := &CustomPropertyValue{}
@@ -443,16 +489,16 @@ func TestOrganizationsService_CreateOrUpdateRepoCustomPropertyValues(t *testing.
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/orgs/o/properties/values", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/orgs/o/properties/values", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PATCH")
 		testBody(t, r, `{"repository_names":["repo"],"properties":[{"property_name":"service","value":"string"}]}`+"\n")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Organizations.CreateOrUpdateRepoCustomPropertyValues(ctx, "o", []string{"repo"}, []*CustomPropertyValue{
 		{
 			PropertyName: "service",
-			Value:        String("string"),
+			Value:        Ptr("string"),
 		},
 	})
 	if err != nil {
@@ -464,4 +510,283 @@ func TestOrganizationsService_CreateOrUpdateRepoCustomPropertyValues(t *testing.
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
 		return client.Organizations.CreateOrUpdateRepoCustomPropertyValues(ctx, "o", nil, nil)
 	})
+}
+
+func TestCustomPropertyDefaultValueString(t *testing.T) {
+	t.Parallel()
+	for _, d := range []struct {
+		testName string
+		property *CustomProperty
+		ok       bool
+		want     string
+	}{
+		{
+			testName: "invalid_type",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeMultiSelect,
+				DefaultValue: []string{"a", "b"},
+			},
+			ok:   false,
+			want: "",
+		},
+		{
+			testName: "string_invalid_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeString,
+				DefaultValue: []string{"a", "b"},
+			},
+			ok:   false,
+			want: "",
+		},
+		{
+			testName: "string_nil_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeString,
+				DefaultValue: nil,
+			},
+			ok:   false,
+			want: "",
+		},
+		{
+			testName: "string_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeString,
+				DefaultValue: "test-string",
+			},
+			ok:   true,
+			want: "test-string",
+		},
+		{
+			testName: "single_select_invalid_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeSingleSelect,
+				DefaultValue: []string{"a", "b"},
+			},
+			ok:   false,
+			want: "",
+		},
+		{
+			testName: "single_select_nil_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeSingleSelect,
+				DefaultValue: nil,
+			},
+			ok:   false,
+			want: "",
+		},
+		{
+			testName: "single_select_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeSingleSelect,
+				DefaultValue: "test-string",
+			},
+			ok:   true,
+			want: "test-string",
+		},
+		{
+			testName: "url_invalid_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeURL,
+				DefaultValue: []string{"a", "b"},
+			},
+			ok:   false,
+			want: "",
+		},
+		{
+			testName: "url_nil_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeURL,
+				DefaultValue: nil,
+			},
+			ok:   false,
+			want: "",
+		},
+		{
+			testName: "url_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeURL,
+				DefaultValue: "http://example.com",
+			},
+			ok:   true,
+			want: "http://example.com",
+		},
+	} {
+		t.Run(d.testName, func(t *testing.T) {
+			t.Parallel()
+			got, ok := d.property.DefaultValueString()
+
+			if ok != d.ok {
+				t.Fatalf("CustomProperty.DefaultValueString set ok to %+v, want %+v", ok, d.ok)
+			}
+
+			if got != d.want {
+				t.Fatalf("CustomProperty.DefaultValueString returned %+v, want %+v", got, d.want)
+			}
+		})
+	}
+}
+
+func TestCustomPropertyDefaultValueStrings(t *testing.T) {
+	t.Parallel()
+	for _, d := range []struct {
+		testName string
+		property *CustomProperty
+		ok       bool
+		want     []string
+	}{
+		{
+			testName: "invalid_type",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeString,
+				DefaultValue: "test",
+			},
+			ok:   false,
+			want: []string{},
+		},
+		{
+			testName: "invalid_slice",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeString,
+				DefaultValue: []any{1, 2, 3},
+			},
+			ok:   false,
+			want: []string{},
+		},
+		{
+			testName: "multi_select_invalid_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeMultiSelect,
+				DefaultValue: "test",
+			},
+			ok:   false,
+			want: []string{},
+		},
+		{
+			testName: "multi_select_nil_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeMultiSelect,
+				DefaultValue: nil,
+			},
+			ok:   false,
+			want: []string{},
+		},
+		{
+			testName: "multi_select_any_slice_single_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeMultiSelect,
+				DefaultValue: []any{"a"},
+			},
+			ok:   true,
+			want: []string{"a"},
+		},
+		{
+			testName: "multi_select_string_slice_single_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeMultiSelect,
+				DefaultValue: []string{"a"},
+			},
+			ok:   true,
+			want: []string{"a"},
+		},
+		{
+			testName: "multi_select_any_slice_multi_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeMultiSelect,
+				DefaultValue: []any{"a", "b"},
+			},
+			ok:   true,
+			want: []string{"a", "b"},
+		},
+		{
+			testName: "multi_select_string_slice_multi_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeMultiSelect,
+				DefaultValue: []string{"a", "b"},
+			},
+			ok:   true,
+			want: []string{"a", "b"},
+		},
+	} {
+		t.Run(d.testName, func(t *testing.T) {
+			t.Parallel()
+			got, ok := d.property.DefaultValueStrings()
+
+			if ok != d.ok {
+				t.Fatalf("CustomProperty.DefaultValueStrings set ok to %+v, want %+v", ok, d.ok)
+			}
+
+			if !cmp.Equal(got, d.want, cmpopts.EquateEmpty()) {
+				t.Fatalf("CustomProperty.DefaultValueStrings returned %+v, want %+v", got, d.want)
+			}
+		})
+	}
+}
+
+func TestCustomPropertyDefaultValueBool(t *testing.T) {
+	t.Parallel()
+	for _, d := range []struct {
+		testName string
+		property *CustomProperty
+		ok       bool
+		want     bool
+	}{
+		{
+			testName: "invalid_type",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeString,
+				DefaultValue: "test",
+			},
+			ok:   false,
+			want: false,
+		},
+		{
+			testName: "true_false_invalid_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeTrueFalse,
+				DefaultValue: "test",
+			},
+			ok:   false,
+			want: false,
+		},
+		{
+			testName: "true_false_nil_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeTrueFalse,
+				DefaultValue: nil,
+			},
+			ok:   false,
+			want: false,
+		},
+		{
+			testName: "true_false_true_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeTrueFalse,
+				DefaultValue: "true",
+			},
+			ok:   true,
+			want: true,
+		},
+		{
+			testName: "true_false_false_value",
+			property: &CustomProperty{
+				ValueType:    PropertyValueTypeTrueFalse,
+				DefaultValue: "false",
+			},
+			ok:   true,
+			want: false,
+		},
+	} {
+		t.Run(d.testName, func(t *testing.T) {
+			t.Parallel()
+			got, ok := d.property.DefaultValueBool()
+
+			if ok != d.ok {
+				t.Fatalf("CustomProperty.DefaultValueBool set ok to %+v, want %+v", ok, d.ok)
+			}
+
+			if ok != d.ok {
+				t.Fatalf("CustomProperty.DefaultValueBool returned %+v, want %+v", got, d.want)
+			}
+		})
+	}
 }

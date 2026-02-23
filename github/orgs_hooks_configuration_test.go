@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,17 +23,17 @@ func TestOrganizationsService_GetHookConfiguration(t *testing.T) {
 		fmt.Fprint(w, `{"content_type": "json", "insecure_ssl": "0", "secret": "********", "url": "https://example.com/webhook"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	config, _, err := client.Organizations.GetHookConfiguration(ctx, "o", 1)
 	if err != nil {
 		t.Errorf("Organizations.GetHookConfiguration returned error: %v", err)
 	}
 
 	want := &HookConfig{
-		ContentType: String("json"),
-		InsecureSSL: String("0"),
-		Secret:      String("********"),
-		URL:         String("https://example.com/webhook"),
+		ContentType: Ptr("json"),
+		InsecureSSL: Ptr("0"),
+		Secret:      Ptr("********"),
+		URL:         Ptr("https://example.com/webhook"),
 	}
 	if !cmp.Equal(config, want) {
 		t.Errorf("Organizations.GetHookConfiguration returned %+v, want %+v", config, want)
@@ -59,7 +58,7 @@ func TestOrganizationsService_GetHookConfiguration_invalidOrg(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Organizations.GetHookConfiguration(ctx, "%", 1)
 	testURLParseError(t, err)
 }
@@ -82,17 +81,17 @@ func TestOrganizationsService_EditHookConfiguration(t *testing.T) {
 		fmt.Fprint(w, `{"content_type": "json", "insecure_ssl": "0", "secret": "********", "url": "https://example.com/webhook"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	config, _, err := client.Organizations.EditHookConfiguration(ctx, "o", 1, input)
 	if err != nil {
 		t.Errorf("Organizations.EditHookConfiguration returned error: %v", err)
 	}
 
 	want := &HookConfig{
-		ContentType: String("json"),
-		InsecureSSL: String("0"),
-		Secret:      String("********"),
-		URL:         String("https://example.com/webhook"),
+		ContentType: Ptr("json"),
+		InsecureSSL: Ptr("0"),
+		Secret:      Ptr("********"),
+		URL:         Ptr("https://example.com/webhook"),
 	}
 	if !cmp.Equal(config, want) {
 		t.Errorf("Organizations.EditHookConfiguration returned %+v, want %+v", config, want)
@@ -117,7 +116,7 @@ func TestOrganizationsService_EditHookConfiguration_invalidOrg(t *testing.T) {
 	t.Parallel()
 	client, _, _ := setup(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, _, err := client.Organizations.EditHookConfiguration(ctx, "%", 1, nil)
 	testURLParseError(t, err)
 }

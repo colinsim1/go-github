@@ -199,7 +199,7 @@ func TestValidatePayload_NoSecretKey(t *testing.T) {
 // badReader satisfies io.Reader but always returns an error.
 type badReader struct{}
 
-func (b *badReader) Read(p []byte) (int, error) {
+func (b *badReader) Read([]byte) (int, error) {
 	return 0, errors.New("bad reader")
 }
 
@@ -215,7 +215,6 @@ func TestValidatePayload_BadRequestBody(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		tt := tt
 		t.Run(fmt.Sprintf("test #%v", i), func(t *testing.T) {
 			t.Parallel()
 			req := &http.Request{
@@ -243,7 +242,7 @@ func TestValidatePayload_InvalidContentTypeParams(t *testing.T) {
 
 func TestValidatePayload_ValidContentTypeParams(t *testing.T) {
 	t.Parallel()
-	var requestBody = `{"yo":true}`
+	requestBody := `{"yo":true}`
 	buf := bytes.NewBufferString(requestBody)
 
 	req, err := http.NewRequest("POST", "http://localhost/event", buf)
@@ -261,7 +260,7 @@ func TestValidatePayload_ValidContentTypeParams(t *testing.T) {
 func TestParseWebHook(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		payload     interface{}
+		payload     any
 		messageType string
 	}{
 		{
@@ -295,6 +294,14 @@ func TestParseWebHook(t *testing.T) {
 		{
 			payload:     &CreateEvent{},
 			messageType: "create",
+		},
+		{
+			payload:     &CustomPropertyEvent{},
+			messageType: "custom_property",
+		},
+		{
+			payload:     &CustomPropertyValuesEvent{},
+			messageType: "custom_property_values",
 		},
 		{
 			payload:     &DeleteEvent{},
@@ -417,18 +424,6 @@ func TestParseWebHook(t *testing.T) {
 			messageType: "ping",
 		},
 		{
-			payload:     &ProjectEvent{},
-			messageType: "project",
-		},
-		{
-			payload:     &ProjectCardEvent{},
-			messageType: "project_card",
-		},
-		{
-			payload:     &ProjectColumnEvent{},
-			messageType: "project_column",
-		},
-		{
 			payload:     &ProjectV2Event{},
 			messageType: "projects_v2",
 		},
@@ -463,6 +458,10 @@ func TestParseWebHook(t *testing.T) {
 		{
 			payload:     &PushEvent{},
 			messageType: "push",
+		},
+		{
+			payload:     &RegistryPackageEvent{},
+			messageType: "registry_package",
 		},
 		{
 			payload:     &ReleaseEvent{},
@@ -590,14 +589,14 @@ func TestParseWebHook_BadMessageType(t *testing.T) {
 func TestValidatePayloadFromBody_UnableToParseBody(t *testing.T) {
 	t.Parallel()
 	if _, err := ValidatePayloadFromBody("application/x-www-form-urlencoded", bytes.NewReader([]byte(`%`)), "sha1=", []byte{}); err == nil {
-		t.Errorf("ValidatePayloadFromBody returned nil; wanted error")
+		t.Error("ValidatePayloadFromBody returned nil; wanted error")
 	}
 }
 
 func TestValidatePayloadFromBody_UnsupportedContentType(t *testing.T) {
 	t.Parallel()
 	if _, err := ValidatePayloadFromBody("invalid", bytes.NewReader([]byte(`{}`)), "sha1=", []byte{}); err == nil {
-		t.Errorf("ValidatePayloadFromBody returned nil; wanted error")
+		t.Error("ValidatePayloadFromBody returned nil; wanted error")
 	}
 }
 

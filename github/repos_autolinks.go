@@ -17,7 +17,7 @@ type AutolinkOptions struct {
 	IsAlphanumeric *bool   `json:"is_alphanumeric,omitempty"`
 }
 
-// Autolink represents autolinks to external resources like JIRA issues and Zendesk tickets.
+// Autolink represents autolinks to external resources like Jira issues and Zendesk tickets.
 type Autolink struct {
 	ID             *int64  `json:"id,omitempty"`
 	KeyPrefix      *string `json:"key_prefix,omitempty"`
@@ -31,12 +31,8 @@ type Autolink struct {
 // GitHub API docs: https://docs.github.com/rest/repos/autolinks#get-all-autolinks-of-a-repository
 //
 //meta:operation GET /repos/{owner}/{repo}/autolinks
-func (s *RepositoriesService) ListAutolinks(ctx context.Context, owner, repo string, opts *ListOptions) ([]*Autolink, *Response, error) {
+func (s *RepositoriesService) ListAutolinks(ctx context.Context, owner, repo string) ([]*Autolink, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/autolinks", owner, repo)
-	u, err := addOptions(u, opts)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {

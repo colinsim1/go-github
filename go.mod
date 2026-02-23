@@ -1,8 +1,8 @@
-module github.com/google/go-github/v67
+module github.com/google/go-github/v83
+
+go 1.25.0
 
 require (
-	github.com/google/go-cmp v0.6.0
-	github.com/google/go-querystring v1.1.0
+	github.com/google/go-cmp v0.7.0
+	github.com/google/go-querystring v1.2.0
 )
-
-go 1.21

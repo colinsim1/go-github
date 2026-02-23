@@ -18,7 +18,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/google/go-github/v67/github"
+	"github.com/google/go-github/v83/github"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -49,13 +49,13 @@ var (
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "This is an example of how to verify the provenance of an artifact using GitHub Attestations and the sigstore-go library.")
-	fmt.Fprintf(os.Stderr, "\nUsage: %s [flags]\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "\nUsage: %v [flags]\n", os.Args[0])
 	fmt.Fprint(os.Stderr, "\nThe flags are:\n")
 	flag.PrintDefaults()
 	fmt.Fprintf(os.Stderr, `
 Example:
 Verifying a GitHub CLI artifact
-	%s -owner cli \
+	%v -owner cli \
 		-artifact-digest 2ce2e480e3c3f7ca0af83418d3ebaeedacee135dbac94bd946d7d84edabcdb64 \
 		-expected-san https://github.com/cli/cli/.github/workflows/deployment.yml@refs/heads/trunk
 
@@ -109,7 +109,6 @@ func main() {
 		}
 
 		err := runVerification(sev, pb, b)
-
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -119,7 +118,7 @@ func main() {
 func getTrustedMaterial() (root.TrustedMaterialCollection, error) {
 	trustedRootJSON, err := os.ReadFile(*trustedRootJSONPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", *trustedRootJSONPath, err)
+		return nil, fmt.Errorf("failed to read %v: %w", *trustedRootJSONPath, err)
 	}
 
 	trustedRoot, err := root.NewTrustedRootFromJSON(trustedRootJSON)
@@ -145,7 +144,7 @@ func getIdentityPolicies() ([]verify.PolicyOption, error) {
 	}, nil
 }
 
-func getSignedEntityVerifier() (*verify.SignedEntityVerifier, error) {
+func getSignedEntityVerifier() (*verify.Verifier, error) {
 	// Set up the verifier
 	verifierConfig := []verify.VerifierOption{
 		verify.WithSignedCertificateTimestamps(1),
@@ -159,7 +158,7 @@ func getSignedEntityVerifier() (*verify.SignedEntityVerifier, error) {
 		return nil, err
 	}
 
-	return verify.NewSignedEntityVerifier(trustedMaterial, verifierConfig...)
+	return verify.NewVerifier(trustedMaterial, verifierConfig...)
 }
 
 func getPolicyBuilder() (*verify.PolicyBuilder, error) {
@@ -169,7 +168,7 @@ func getPolicyBuilder() (*verify.PolicyBuilder, error) {
 		return nil, err
 	}
 
-	// Set up the articaft policy
+	// Set up the artifact policy
 	artifactDigestBytes, err := hex.DecodeString(*artifactDigest)
 	if err != nil {
 		return nil, err
@@ -180,13 +179,13 @@ func getPolicyBuilder() (*verify.PolicyBuilder, error) {
 	return &pb, nil
 }
 
-func runVerification(sev *verify.SignedEntityVerifier, pb *verify.PolicyBuilder, b *bundle.Bundle) error {
+func runVerification(sev *verify.Verifier, pb *verify.PolicyBuilder, b *bundle.Bundle) error {
 	res, err := sev.Verify(b, *pb)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Verification successful!\n")
+	fmt.Fprint(os.Stderr, "Verification successful!\n")
 
 	marshaled, err := json.MarshalIndent(res, "", "  ")
 	if err != nil {

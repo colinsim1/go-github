@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,7 +17,7 @@ import (
 
 func TestPublicKey_UnmarshalJSON(t *testing.T) {
 	t.Parallel()
-	var testCases = map[string]struct {
+	testCases := map[string]struct {
 		data          []byte
 		wantPublicKey PublicKey
 		wantErr       bool
@@ -35,17 +34,17 @@ func TestPublicKey_UnmarshalJSON(t *testing.T) {
 		},
 		"Numeric KeyID": {
 			data:          []byte(`{"key_id":1234,"key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`),
-			wantPublicKey: PublicKey{KeyID: String("1234"), Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")},
+			wantPublicKey: PublicKey{KeyID: Ptr("1234"), Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")},
 			wantErr:       false,
 		},
 		"String KeyID": {
 			data:          []byte(`{"key_id":"1234","key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`),
-			wantPublicKey: PublicKey{KeyID: String("1234"), Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")},
+			wantPublicKey: PublicKey{KeyID: Ptr("1234"), Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")},
 			wantErr:       false,
 		},
 		"Invalid KeyID": {
 			data:          []byte(`{"key_id":["1234"],"key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`),
-			wantPublicKey: PublicKey{KeyID: nil, Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")},
+			wantPublicKey: PublicKey{KeyID: nil, Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")},
 			wantErr:       true,
 		},
 		"Invalid Key": {
@@ -65,24 +64,23 @@ func TestPublicKey_UnmarshalJSON(t *testing.T) {
 		},
 		"Missing Key": {
 			data:          []byte(`{"key_id":"1234"}`),
-			wantPublicKey: PublicKey{KeyID: String("1234")},
+			wantPublicKey: PublicKey{KeyID: Ptr("1234")},
 			wantErr:       false,
 		},
 		"Missing KeyID": {
 			data:          []byte(`{"key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`),
-			wantPublicKey: PublicKey{Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")},
+			wantPublicKey: PublicKey{Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")},
 			wantErr:       false,
 		},
 	}
 
 	for name, tt := range testCases {
-		tt := tt
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			pk := PublicKey{}
 			err := json.Unmarshal(tt.data, &pk)
 			if err == nil && tt.wantErr {
-				t.Errorf("PublicKey.UnmarshalJSON returned nil instead of an error")
+				t.Error("PublicKey.UnmarshalJSON returned nil instead of an error")
 			}
 			if err != nil && !tt.wantErr {
 				t.Errorf("PublicKey.UnmarshalJSON returned an unexpected error: %+v", err)
@@ -103,13 +101,13 @@ func TestActionsService_GetRepoPublicKey(t *testing.T) {
 		fmt.Fprint(w, `{"key_id":"1234","key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	key, _, err := client.Actions.GetRepoPublicKey(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Actions.GetRepoPublicKey returned error: %v", err)
 	}
 
-	want := &PublicKey{KeyID: String("1234"), Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
+	want := &PublicKey{KeyID: Ptr("1234"), Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
 	if !cmp.Equal(key, want) {
 		t.Errorf("Actions.GetRepoPublicKey returned %+v, want %+v", key, want)
 	}
@@ -138,13 +136,13 @@ func TestActionsService_GetRepoPublicKeyNumeric(t *testing.T) {
 		fmt.Fprint(w, `{"key_id":1234,"key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	key, _, err := client.Actions.GetRepoPublicKey(ctx, "o", "r")
 	if err != nil {
 		t.Errorf("Actions.GetRepoPublicKey returned error: %v", err)
 	}
 
-	want := &PublicKey{KeyID: String("1234"), Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
+	want := &PublicKey{KeyID: Ptr("1234"), Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
 	if !cmp.Equal(key, want) {
 		t.Errorf("Actions.GetRepoPublicKey returned %+v, want %+v", key, want)
 	}
@@ -175,7 +173,7 @@ func TestActionsService_ListRepoSecrets(t *testing.T) {
 	})
 
 	opts := &ListOptions{Page: 2, PerPage: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	secrets, _, err := client.Actions.ListRepoSecrets(ctx, "o", "r", opts)
 	if err != nil {
 		t.Errorf("Actions.ListRepoSecrets returned error: %v", err)
@@ -184,8 +182,8 @@ func TestActionsService_ListRepoSecrets(t *testing.T) {
 	want := &Secrets{
 		TotalCount: 4,
 		Secrets: []*Secret{
-			{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
-			{Name: "B", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
+			{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
+			{Name: "B", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
 		},
 	}
 	if !cmp.Equal(secrets, want) {
@@ -218,7 +216,7 @@ func TestActionsService_ListRepoOrgSecrets(t *testing.T) {
 	})
 
 	opts := &ListOptions{Page: 2, PerPage: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	secrets, _, err := client.Actions.ListRepoOrgSecrets(ctx, "o", "r", opts)
 	if err != nil {
 		t.Errorf("Actions.ListRepoOrgSecrets returned error: %v", err)
@@ -227,8 +225,8 @@ func TestActionsService_ListRepoOrgSecrets(t *testing.T) {
 	want := &Secrets{
 		TotalCount: 4,
 		Secrets: []*Secret{
-			{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
-			{Name: "B", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
+			{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
+			{Name: "B", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
 		},
 	}
 	if !cmp.Equal(secrets, want) {
@@ -259,7 +257,7 @@ func TestActionsService_GetRepoSecret(t *testing.T) {
 		fmt.Fprint(w, `{"name":"NAME","created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	secret, _, err := client.Actions.GetRepoSecret(ctx, "o", "r", "NAME")
 	if err != nil {
 		t.Errorf("Actions.GetRepoSecret returned error: %v", err)
@@ -267,8 +265,8 @@ func TestActionsService_GetRepoSecret(t *testing.T) {
 
 	want := &Secret{
 		Name:      "NAME",
-		CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)},
-		UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)},
+		CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)},
+		UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)},
 	}
 	if !cmp.Equal(secret, want) {
 		t.Errorf("Actions.GetRepoSecret returned %+v, want %+v", secret, want)
@@ -305,13 +303,17 @@ func TestActionsService_CreateOrUpdateRepoSecret(t *testing.T) {
 		EncryptedValue: "QIv=",
 		KeyID:          "1234",
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.CreateOrUpdateRepoSecret(ctx, "o", "r", input)
 	if err != nil {
 		t.Errorf("Actions.CreateOrUpdateRepoSecret returned error: %v", err)
 	}
 
 	const methodName = "CreateOrUpdateRepoSecret"
+	testBadOptions(t, methodName, func() (err error) {
+		_, err = client.Actions.CreateOrUpdateRepoSecret(ctx, "o", "r", nil)
+		return err
+	})
 	testBadOptions(t, methodName, func() (err error) {
 		_, err = client.Actions.CreateOrUpdateRepoSecret(ctx, "\n", "\n", input)
 		return err
@@ -326,11 +328,11 @@ func TestActionsService_DeleteRepoSecret(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/actions/secrets/NAME", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/actions/secrets/NAME", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.DeleteRepoSecret(ctx, "o", "r", "NAME")
 	if err != nil {
 		t.Errorf("Actions.DeleteRepoSecret returned error: %v", err)
@@ -356,13 +358,13 @@ func TestActionsService_GetOrgPublicKey(t *testing.T) {
 		fmt.Fprint(w, `{"key_id":"012345678","key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	key, _, err := client.Actions.GetOrgPublicKey(ctx, "o")
 	if err != nil {
 		t.Errorf("Actions.GetOrgPublicKey returned error: %v", err)
 	}
 
-	want := &PublicKey{KeyID: String("012345678"), Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
+	want := &PublicKey{KeyID: Ptr("012345678"), Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
 	if !cmp.Equal(key, want) {
 		t.Errorf("Actions.GetOrgPublicKey returned %+v, want %+v", key, want)
 	}
@@ -393,7 +395,7 @@ func TestActionsService_ListOrgSecrets(t *testing.T) {
 	})
 
 	opts := &ListOptions{Page: 2, PerPage: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	secrets, _, err := client.Actions.ListOrgSecrets(ctx, "o", opts)
 	if err != nil {
 		t.Errorf("Actions.ListOrgSecrets returned error: %v", err)
@@ -435,7 +437,7 @@ func TestActionsService_GetOrgSecret(t *testing.T) {
 		fmt.Fprint(w, `{"name":"NAME","created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z","visibility":"selected","selected_repositories_url":"https://api.github.com/orgs/octo-org/actions/secrets/SUPER_SECRET/repositories"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	secret, _, err := client.Actions.GetOrgSecret(ctx, "o", "NAME")
 	if err != nil {
 		t.Errorf("Actions.GetOrgSecret returned error: %v", err)
@@ -443,8 +445,8 @@ func TestActionsService_GetOrgSecret(t *testing.T) {
 
 	want := &Secret{
 		Name:                    "NAME",
-		CreatedAt:               Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)},
-		UpdatedAt:               Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)},
+		CreatedAt:               Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)},
+		UpdatedAt:               Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)},
 		Visibility:              "selected",
 		SelectedRepositoriesURL: "https://api.github.com/orgs/octo-org/actions/secrets/SUPER_SECRET/repositories",
 	}
@@ -485,13 +487,17 @@ func TestActionsService_CreateOrUpdateOrgSecret(t *testing.T) {
 		Visibility:            "selected",
 		SelectedRepositoryIDs: SelectedRepoIDs{1296269, 1269280},
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.CreateOrUpdateOrgSecret(ctx, "o", input)
 	if err != nil {
 		t.Errorf("Actions.CreateOrUpdateOrgSecret returned error: %v", err)
 	}
 
 	const methodName = "CreateOrUpdateOrgSecret"
+	testBadOptions(t, methodName, func() (err error) {
+		_, err = client.Actions.CreateOrUpdateOrgSecret(ctx, "o", nil)
+		return err
+	})
 	testBadOptions(t, methodName, func() (err error) {
 		_, err = client.Actions.CreateOrUpdateOrgSecret(ctx, "\n", input)
 		return err
@@ -508,20 +514,20 @@ func TestActionsService_ListSelectedReposForOrgSecret(t *testing.T) {
 
 	mux.HandleFunc("/orgs/o/actions/secrets/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "GET")
-		fmt.Fprintf(w, `{"total_count":1,"repositories":[{"id":1}]}`)
+		fmt.Fprint(w, `{"total_count":1,"repositories":[{"id":1}]}`)
 	})
 
 	opts := &ListOptions{Page: 2, PerPage: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	repos, _, err := client.Actions.ListSelectedReposForOrgSecret(ctx, "o", "NAME", opts)
 	if err != nil {
 		t.Errorf("Actions.ListSelectedReposForOrgSecret returned error: %v", err)
 	}
 
 	want := &SelectedReposList{
-		TotalCount: Int(1),
+		TotalCount: Ptr(1),
 		Repositories: []*Repository{
-			{ID: Int64(1)},
+			{ID: Ptr(int64(1))},
 		},
 	}
 	if !cmp.Equal(repos, want) {
@@ -547,13 +553,13 @@ func TestActionsService_SetSelectedReposForOrgSecret(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/orgs/o/actions/secrets/NAME/repositories", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/orgs/o/actions/secrets/NAME/repositories", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 		testHeader(t, r, "Content-Type", "application/json")
 		testBody(t, r, `{"selected_repository_ids":[64780797]}`+"\n")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.SetSelectedReposForOrgSecret(ctx, "o", "NAME", SelectedRepoIDs{64780797})
 	if err != nil {
 		t.Errorf("Actions.SetSelectedReposForOrgSecret returned error: %v", err)
@@ -574,18 +580,22 @@ func TestActionsService_AddSelectedRepoToOrgSecret(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/orgs/o/actions/secrets/NAME/repositories/1234", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/orgs/o/actions/secrets/NAME/repositories/1234", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "PUT")
 	})
 
-	repo := &Repository{ID: Int64(1234)}
-	ctx := context.Background()
+	repo := &Repository{ID: Ptr(int64(1234))}
+	ctx := t.Context()
 	_, err := client.Actions.AddSelectedRepoToOrgSecret(ctx, "o", "NAME", repo)
 	if err != nil {
 		t.Errorf("Actions.AddSelectedRepoToOrgSecret returned error: %v", err)
 	}
 
 	const methodName = "AddSelectedRepoToOrgSecret"
+	testBadOptions(t, methodName, func() (err error) {
+		_, err = client.Actions.AddSelectedRepoToOrgSecret(ctx, "o", "NAME", nil)
+		return err
+	})
 	testBadOptions(t, methodName, func() (err error) {
 		_, err = client.Actions.AddSelectedRepoToOrgSecret(ctx, "\n", "\n", repo)
 		return err
@@ -600,18 +610,22 @@ func TestActionsService_RemoveSelectedRepoFromOrgSecret(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/orgs/o/actions/secrets/NAME/repositories/1234", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/orgs/o/actions/secrets/NAME/repositories/1234", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	repo := &Repository{ID: Int64(1234)}
-	ctx := context.Background()
+	repo := &Repository{ID: Ptr(int64(1234))}
+	ctx := t.Context()
 	_, err := client.Actions.RemoveSelectedRepoFromOrgSecret(ctx, "o", "NAME", repo)
 	if err != nil {
 		t.Errorf("Actions.RemoveSelectedRepoFromOrgSecret returned error: %v", err)
 	}
 
 	const methodName = "RemoveSelectedRepoFromOrgSecret"
+	testBadOptions(t, methodName, func() (err error) {
+		_, err = client.Actions.RemoveSelectedRepoFromOrgSecret(ctx, "o", "NAME", nil)
+		return err
+	})
 	testBadOptions(t, methodName, func() (err error) {
 		_, err = client.Actions.RemoveSelectedRepoFromOrgSecret(ctx, "\n", "\n", repo)
 		return err
@@ -626,11 +640,11 @@ func TestActionsService_DeleteOrgSecret(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/orgs/o/actions/secrets/NAME", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/orgs/o/actions/secrets/NAME", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.DeleteOrgSecret(ctx, "o", "NAME")
 	if err != nil {
 		t.Errorf("Actions.DeleteOrgSecret returned error: %v", err)
@@ -656,13 +670,13 @@ func TestActionsService_GetEnvPublicKey(t *testing.T) {
 		fmt.Fprint(w, `{"key_id":"1234","key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	key, _, err := client.Actions.GetEnvPublicKey(ctx, 1, "e")
 	if err != nil {
 		t.Errorf("Actions.GetEnvPublicKey returned error: %v", err)
 	}
 
-	want := &PublicKey{KeyID: String("1234"), Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
+	want := &PublicKey{KeyID: Ptr("1234"), Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
 	if !cmp.Equal(key, want) {
 		t.Errorf("Actions.GetEnvPublicKey returned %+v, want %+v", key, want)
 	}
@@ -691,13 +705,13 @@ func TestActionsService_GetEnvPublicKeyNumeric(t *testing.T) {
 		fmt.Fprint(w, `{"key_id":1234,"key":"2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	key, _, err := client.Actions.GetEnvPublicKey(ctx, 1, "e")
 	if err != nil {
 		t.Errorf("Actions.GetEnvPublicKey returned error: %v", err)
 	}
 
-	want := &PublicKey{KeyID: String("1234"), Key: String("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
+	want := &PublicKey{KeyID: Ptr("1234"), Key: Ptr("2Sg8iYjAxxmI2LvUXpJjkYrMxURPc8r+dB7TJyvv1234")}
 	if !cmp.Equal(key, want) {
 		t.Errorf("Actions.GetEnvPublicKey returned %+v, want %+v", key, want)
 	}
@@ -728,7 +742,7 @@ func TestActionsService_ListEnvSecrets(t *testing.T) {
 	})
 
 	opts := &ListOptions{Page: 2, PerPage: 2}
-	ctx := context.Background()
+	ctx := t.Context()
 	secrets, _, err := client.Actions.ListEnvSecrets(ctx, 1, "e", opts)
 	if err != nil {
 		t.Errorf("Actions.ListEnvSecrets returned error: %v", err)
@@ -737,8 +751,8 @@ func TestActionsService_ListEnvSecrets(t *testing.T) {
 	want := &Secrets{
 		TotalCount: 4,
 		Secrets: []*Secret{
-			{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
-			{Name: "B", CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)}},
+			{Name: "A", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
+			{Name: "B", CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)}, UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)}},
 		},
 	}
 	if !cmp.Equal(secrets, want) {
@@ -769,7 +783,7 @@ func TestActionsService_GetEnvSecret(t *testing.T) {
 		fmt.Fprint(w, `{"name":"secret","created_at":"2019-01-02T15:04:05Z","updated_at":"2020-01-02T15:04:05Z"}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	secret, _, err := client.Actions.GetEnvSecret(ctx, 1, "e", "secret")
 	if err != nil {
 		t.Errorf("Actions.GetEnvSecret returned error: %v", err)
@@ -777,8 +791,8 @@ func TestActionsService_GetEnvSecret(t *testing.T) {
 
 	want := &Secret{
 		Name:      "secret",
-		CreatedAt: Timestamp{time.Date(2019, time.January, 02, 15, 04, 05, 0, time.UTC)},
-		UpdatedAt: Timestamp{time.Date(2020, time.January, 02, 15, 04, 05, 0, time.UTC)},
+		CreatedAt: Timestamp{time.Date(2019, time.January, 2, 15, 4, 5, 0, time.UTC)},
+		UpdatedAt: Timestamp{time.Date(2020, time.January, 2, 15, 4, 5, 0, time.UTC)},
 	}
 	if !cmp.Equal(secret, want) {
 		t.Errorf("Actions.GetEnvSecret returned %+v, want %+v", secret, want)
@@ -815,13 +829,17 @@ func TestActionsService_CreateOrUpdateEnvSecret(t *testing.T) {
 		EncryptedValue: "QIv=",
 		KeyID:          "1234",
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.CreateOrUpdateEnvSecret(ctx, 1, "e", input)
 	if err != nil {
 		t.Errorf("Actions.CreateOrUpdateEnvSecret returned error: %v", err)
 	}
 
 	const methodName = "CreateOrUpdateEnvSecret"
+	testBadOptions(t, methodName, func() (err error) {
+		_, err = client.Actions.CreateOrUpdateEnvSecret(ctx, 1, "e", nil)
+		return err
+	})
 	testBadOptions(t, methodName, func() (err error) {
 		_, err = client.Actions.CreateOrUpdateEnvSecret(ctx, 0.0, "\n", input)
 		return err
@@ -836,11 +854,11 @@ func TestActionsService_DeleteEnvSecret(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repositories/1/environments/e/secrets/secret", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repositories/1/environments/e/secrets/secret", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Actions.DeleteEnvSecret(ctx, 1, "e", "secret")
 	if err != nil {
 		t.Errorf("Actions.DeleteEnvSecret returned error: %v", err)
@@ -862,8 +880,8 @@ func TestPublicKey_Marshal(t *testing.T) {
 	testJSONMarshal(t, &PublicKey{}, "{}")
 
 	u := &PublicKey{
-		KeyID: String("kid"),
-		Key:   String("k"),
+		KeyID: Ptr("kid"),
+		Key:   Ptr("k"),
 	}
 
 	want := `{
@@ -909,7 +927,8 @@ func TestSecrets_Marshal(t *testing.T) {
 				CreatedAt:               Timestamp{referenceTime},
 				UpdatedAt:               Timestamp{referenceTime},
 				Visibility:              "v",
-				SelectedRepositoriesURL: "s"},
+				SelectedRepositoriesURL: "s",
+			},
 		},
 	}
 
@@ -956,12 +975,12 @@ func TestSelectedReposList_Marshal(t *testing.T) {
 	testJSONMarshal(t, &SelectedReposList{}, "{}")
 
 	u := &SelectedReposList{
-		TotalCount: Int(1),
+		TotalCount: Ptr(1),
 		Repositories: []*Repository{
 			{
-				ID:   Int64(1),
-				URL:  String("u"),
-				Name: String("n"),
+				ID:   Ptr(int64(1)),
+				URL:  Ptr("u"),
+				Name: Ptr("n"),
 			},
 		},
 	}

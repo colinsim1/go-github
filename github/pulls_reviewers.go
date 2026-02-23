@@ -36,7 +36,7 @@ type removeReviewersRequest struct {
 //
 //meta:operation POST /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers
 func (s *PullRequestsService) RequestReviewers(ctx context.Context, owner, repo string, number int, reviewers ReviewersRequest) (*PullRequest, *Response, error) {
-	u := fmt.Sprintf("repos/%s/%s/pulls/%d/requested_reviewers", owner, repo, number)
+	u := fmt.Sprintf("repos/%v/%v/pulls/%v/requested_reviewers", owner, repo, number)
 	req, err := s.client.NewRequest("POST", u, &reviewers)
 	if err != nil {
 		return nil, nil, err
@@ -56,12 +56,8 @@ func (s *PullRequestsService) RequestReviewers(ctx context.Context, owner, repo 
 // GitHub API docs: https://docs.github.com/rest/pulls/review-requests#get-all-requested-reviewers-for-a-pull-request
 //
 //meta:operation GET /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers
-func (s *PullRequestsService) ListReviewers(ctx context.Context, owner, repo string, number int, opts *ListOptions) (*Reviewers, *Response, error) {
-	u := fmt.Sprintf("repos/%v/%v/pulls/%d/requested_reviewers", owner, repo, number)
-	u, err := addOptions(u, opts)
-	if err != nil {
-		return nil, nil, err
-	}
+func (s *PullRequestsService) ListReviewers(ctx context.Context, owner, repo string, number int) (*Reviewers, *Response, error) {
+	u := fmt.Sprintf("repos/%v/%v/pulls/%v/requested_reviewers", owner, repo, number)
 
 	req, err := s.client.NewRequest("GET", u, nil)
 	if err != nil {
@@ -85,18 +81,15 @@ func (s *PullRequestsService) ListReviewers(ctx context.Context, owner, repo str
 func (s *PullRequestsService) RemoveReviewers(ctx context.Context, owner, repo string, number int, reviewers ReviewersRequest) (*Response, error) {
 	// reviewers.Reviewers may be empty if the caller wants to remove teams, but not users. Unlike AddReviewers,
 	// "reviewers" is a required param here. Reference: https://github.com/google/go-github/issues/3336
-	removeRequest := removeReviewersRequest{
-		NodeID:        reviewers.NodeID,
-		Reviewers:     reviewers.Reviewers,
-		TeamReviewers: reviewers.TeamReviewers,
-	}
+	// The type `removeReviewersRequest` is required because the struct tags are different from `ReviewersRequest`.
+	removeRequest := removeReviewersRequest(reviewers)
 
 	if removeRequest.Reviewers == nil {
 		// GitHub accepts the empty list, but rejects null. Removing `omitempty` is not enough - we also have to promote nil to [].
 		removeRequest.Reviewers = []string{}
 	}
 
-	u := fmt.Sprintf("repos/%s/%s/pulls/%d/requested_reviewers", owner, repo, number)
+	u := fmt.Sprintf("repos/%v/%v/pulls/%v/requested_reviewers", owner, repo, number)
 	req, err := s.client.NewRequest("DELETE", u, &removeRequest)
 	if err != nil {
 		return nil, err

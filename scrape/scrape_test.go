@@ -1,3 +1,8 @@
+// Copyright 2013 The go-github AUTHORS. All rights reserved.
+//
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package scrape
 
 import (
@@ -10,7 +15,7 @@ import (
 	"testing"
 )
 
-// setup a test HTTP server along with a scrape.Client that is configured to
+// set up a test HTTP server along with a scrape.Client that is configured to
 // talk to that test server. Tests should register handlers on the mux which
 // provide mock responses for the GitHub pages being tested.
 func setup(t *testing.T) (client *Client, mux *http.ServeMux) {

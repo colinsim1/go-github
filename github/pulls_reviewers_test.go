@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -19,7 +18,7 @@ func TestReviewersRequest_Marshal(t *testing.T) {
 	testJSONMarshal(t, &ReviewersRequest{}, "{}")
 
 	u := &ReviewersRequest{
-		NodeID:        String("n"),
+		NodeID:        Ptr("n"),
 		Reviewers:     []string{"r"},
 		TeamReviewers: []string{"t"},
 	}
@@ -43,38 +42,38 @@ func TestReviewers_Marshal(t *testing.T) {
 
 	u := &Reviewers{
 		Users: []*User{{
-			Login:       String("l"),
-			ID:          Int64(1),
-			AvatarURL:   String("a"),
-			GravatarID:  String("g"),
-			Name:        String("n"),
-			Company:     String("c"),
-			Blog:        String("b"),
-			Location:    String("l"),
-			Email:       String("e"),
-			Hireable:    Bool(true),
-			PublicRepos: Int(1),
-			Followers:   Int(1),
-			Following:   Int(1),
+			Login:       Ptr("l"),
+			ID:          Ptr(int64(1)),
+			AvatarURL:   Ptr("a"),
+			GravatarID:  Ptr("g"),
+			Name:        Ptr("n"),
+			Company:     Ptr("c"),
+			Blog:        Ptr("b"),
+			Location:    Ptr("l"),
+			Email:       Ptr("e"),
+			Hireable:    Ptr(true),
+			PublicRepos: Ptr(1),
+			Followers:   Ptr(1),
+			Following:   Ptr(1),
 			CreatedAt:   &Timestamp{referenceTime},
-			URL:         String("u"),
+			URL:         Ptr("u"),
 		}},
 		Teams: []*Team{{
-			ID:              Int64(1),
-			NodeID:          String("node"),
-			Name:            String("n"),
-			Description:     String("d"),
-			URL:             String("u"),
-			Slug:            String("s"),
-			Permission:      String("p"),
-			Privacy:         String("priv"),
-			MembersCount:    Int(1),
-			ReposCount:      Int(1),
+			ID:              Ptr(int64(1)),
+			NodeID:          Ptr("node"),
+			Name:            Ptr("n"),
+			Description:     Ptr("d"),
+			URL:             Ptr("u"),
+			Slug:            Ptr("s"),
+			Permission:      Ptr("p"),
+			Privacy:         Ptr("priv"),
+			MembersCount:    Ptr(1),
+			ReposCount:      Ptr(1),
 			Organization:    nil,
-			MembersURL:      String("m"),
-			RepositoriesURL: String("r"),
+			MembersURL:      Ptr("m"),
+			RepositoriesURL: Ptr("r"),
 			Parent:          nil,
-			LDAPDN:          String("l"),
+			LDAPDN:          Ptr("l"),
 		}},
 	}
 
@@ -130,13 +129,13 @@ func TestRequestReviewers(t *testing.T) {
 		fmt.Fprint(w, `{"number":1}`)
 	})
 
-	// This returns a PR, unmarshalling of which is tested elsewhere
-	ctx := context.Background()
+	// This returns a PR, unmarshaling of which is tested elsewhere
+	ctx := t.Context()
 	got, _, err := client.PullRequests.RequestReviewers(ctx, "o", "r", 1, ReviewersRequest{Reviewers: []string{"octocat", "googlebot"}, TeamReviewers: []string{"justice-league", "injustice-league"}})
 	if err != nil {
 		t.Errorf("PullRequests.RequestReviewers returned error: %v", err)
 	}
-	want := &PullRequest{Number: Int(1)}
+	want := &PullRequest{Number: Ptr(1)}
 	if !cmp.Equal(got, want) {
 		t.Errorf("PullRequests.RequestReviewers returned %+v, want %+v", got, want)
 	}
@@ -155,12 +154,12 @@ func TestRemoveReviewers(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/pulls/1/requested_reviewers", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/pulls/1/requested_reviewers", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 		testBody(t, r, `{"reviewers":["octocat","googlebot"],"team_reviewers":["justice-league"]}`+"\n")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.PullRequests.RemoveReviewers(ctx, "o", "r", 1, ReviewersRequest{Reviewers: []string{"octocat", "googlebot"}, TeamReviewers: []string{"justice-league"}})
 	if err != nil {
 		t.Errorf("PullRequests.RemoveReviewers returned error: %v", err)
@@ -176,12 +175,12 @@ func TestRemoveReviewers_teamsOnly(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/repos/o/r/pulls/1/requested_reviewers", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/o/r/pulls/1/requested_reviewers", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 		testBody(t, r, `{"reviewers":[],"team_reviewers":["justice-league"]}`+"\n")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.PullRequests.RemoveReviewers(ctx, "o", "r", 1, ReviewersRequest{TeamReviewers: []string{"justice-league"}})
 	if err != nil {
 		t.Errorf("PullRequests.RemoveReviewers returned error: %v", err)
@@ -202,8 +201,8 @@ func TestListReviewers(t *testing.T) {
 		fmt.Fprint(w, `{"users":[{"login":"octocat","id":1}],"teams":[{"id":1,"name":"Justice League"}]}`)
 	})
 
-	ctx := context.Background()
-	got, _, err := client.PullRequests.ListReviewers(ctx, "o", "r", 1, nil)
+	ctx := t.Context()
+	got, _, err := client.PullRequests.ListReviewers(ctx, "o", "r", 1)
 	if err != nil {
 		t.Errorf("PullRequests.ListReviewers returned error: %v", err)
 	}
@@ -211,14 +210,14 @@ func TestListReviewers(t *testing.T) {
 	want := &Reviewers{
 		Users: []*User{
 			{
-				Login: String("octocat"),
-				ID:    Int64(1),
+				Login: Ptr("octocat"),
+				ID:    Ptr(int64(1)),
 			},
 		},
 		Teams: []*Team{
 			{
-				ID:   Int64(1),
-				Name: String("Justice League"),
+				ID:   Ptr(int64(1)),
+				Name: Ptr("Justice League"),
 			},
 		},
 	}
@@ -228,40 +227,7 @@ func TestListReviewers(t *testing.T) {
 
 	const methodName = "ListReviewers"
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.PullRequests.ListReviewers(ctx, "o", "r", 1, nil)
-		if got != nil {
-			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
-		}
-		return resp, err
-	})
-}
-
-func TestListReviewers_withOptions(t *testing.T) {
-	t.Parallel()
-	client, mux, _ := setup(t)
-
-	mux.HandleFunc("/repos/o/r/pulls/1/requested_reviewers", func(w http.ResponseWriter, r *http.Request) {
-		testMethod(t, r, "GET")
-		testFormValues(t, r, values{
-			"page": "2",
-		})
-		fmt.Fprint(w, `{}`)
-	})
-
-	ctx := context.Background()
-	_, _, err := client.PullRequests.ListReviewers(ctx, "o", "r", 1, &ListOptions{Page: 2})
-	if err != nil {
-		t.Errorf("PullRequests.ListReviewers returned error: %v", err)
-	}
-
-	const methodName = "ListReviewers"
-	testBadOptions(t, methodName, func() (err error) {
-		_, _, err = client.PullRequests.ListReviewers(ctx, "\n", "\n", 1, &ListOptions{Page: 2})
-		return err
-	})
-
-	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
-		got, resp, err := client.PullRequests.ListReviewers(ctx, "o", "r", 1, &ListOptions{Page: 2})
+		got, resp, err := client.PullRequests.ListReviewers(ctx, "o", "r", 1)
 		if got != nil {
 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
 		}

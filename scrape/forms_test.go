@@ -1,3 +1,8 @@
+// Copyright 2013 The go-github AUTHORS. All rights reserved.
+//
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package scrape
 
 import (
@@ -16,14 +21,14 @@ func Test_ParseForms(t *testing.T) {
 	tests := []struct {
 		description string
 		html        string
-		forms       []htmlForm
+		forms       []*htmlForm
 	}{
 		{"no forms", `<html></html>`, nil},
-		{"empty form", `<html><form></form></html>`, []htmlForm{{Values: url.Values{}}}},
+		{"empty form", `<html><form></form></html>`, []*htmlForm{{Values: url.Values{}}}},
 		{
 			"single form with one value",
 			`<html><form action="a" method="m"><input name="n1" value="v1"></form></html>`,
-			[]htmlForm{{Action: "a", Method: "m", Values: url.Values{"n1": {"v1"}}}},
+			[]*htmlForm{{Action: "a", Method: "m", Values: url.Values{"n1": {"v1"}}}},
 		},
 		{
 			"two forms",
@@ -31,7 +36,7 @@ func Test_ParseForms(t *testing.T) {
 			  <form action="a1" method="m1"><input name="n1" value="v1"></form>
 			  <form action="a2" method="m2"><input name="n2" value="v2"></form>
 			</html>`,
-			[]htmlForm{
+			[]*htmlForm{
 				{Action: "a1", Method: "m1", Values: url.Values{"n1": {"v1"}}},
 				{Action: "a2", Method: "m2", Values: url.Values{"n2": {"v2"}}},
 			},
@@ -43,7 +48,7 @@ func Test_ParseForms(t *testing.T) {
 			   <input type="radio" name="n1" value="v2">
 			   <input type="radio" name="n1" value="v3">
 			</form></html>`,
-			[]htmlForm{{Values: url.Values{}}},
+			[]*htmlForm{{Values: url.Values{}}},
 		},
 		{
 			"form with radio buttons",
@@ -52,7 +57,7 @@ func Test_ParseForms(t *testing.T) {
 			   <input type="radio" name="n1" value="v2">
 			   <input type="radio" name="n1" value="v3" checked>
 			</form></html>`,
-			[]htmlForm{{Values: url.Values{"n1": {"v3"}}}},
+			[]*htmlForm{{Values: url.Values{"n1": {"v3"}}}},
 		},
 		{
 			"form with checkboxes",
@@ -61,17 +66,16 @@ func Test_ParseForms(t *testing.T) {
 			   <input type="checkbox" name="n2" value="v2">
 			   <input type="checkbox" name="n3" value="v3" checked>
 			</form></html>`,
-			[]htmlForm{{Values: url.Values{"n1": {"v1"}, "n3": {"v3"}}}},
+			[]*htmlForm{{Values: url.Values{"n1": {"v1"}, "n3": {"v3"}}}},
 		},
 		{
 			"single form with textarea",
 			`<html><form><textarea name="n1">v1</textarea></form></html>`,
-			[]htmlForm{{Values: url.Values{"n1": {"v1"}}}},
+			[]*htmlForm{{Values: url.Values{"n1": {"v1"}}}},
 		},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.description, func(t *testing.T) {
 			t.Parallel()
 			node, err := html.Parse(strings.NewReader(tt.html))
@@ -85,18 +89,18 @@ func Test_ParseForms(t *testing.T) {
 	}
 }
 
-func Test_FetchAndSumbitForm(t *testing.T) {
+func Test_FetchAndSubmitForm(t *testing.T) {
 	t.Parallel()
 	client, mux := setup(t)
 	var submitted bool
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `<html><form action="/submit">
 		  <input type="hidden" name="hidden" value="h">
 		  <input type="text" name="name">
 		</form></html>`)
 	})
-	mux.HandleFunc("/submit", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/submit", func(_ http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
 		if err != nil {
 			t.Fatalf("error parsing form: %v", err)

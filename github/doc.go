@@ -8,8 +8,7 @@ Package github provides a client for using the GitHub API.
 
 Usage:
 
-	import "github.com/google/go-github/v67/github"	// with go modules enabled (GO111MODULE=on or outside GOPATH)
-	import "github.com/google/go-github/github"     // with go modules disabled
+	import "github.com/google/go-github/v83/github"
 
 Construct a new GitHub client, then use the various services on the client to
 access different parts of the GitHub API. For example:
@@ -31,27 +30,27 @@ The services of a client divide the API into logical chunks and correspond to
 the structure of the GitHub API documentation at
 https://docs.github.com/rest .
 
-NOTE: Using the https://pkg.go.dev/context package, one can easily
-pass cancelation signals and deadlines to various services of the client for
-handling a request. In case there is no context available, then context.Background()
+NOTE: Using the [context] package, one can easily
+pass cancellation signals and deadlines to various services of the client for
+handling a request. In case there is no context available, then [context.Background]
 can be used as a starting point.
 
 For more sample code snippets, head over to the https://github.com/google/go-github/tree/master/example directory.
 
 # Authentication
 
-Use Client.WithAuthToken to configure your client to authenticate using an Oauth token
+Use [Client.WithAuthToken] to configure your client to authenticate using an OAuth token
 (for example, a personal access token). This is what is needed for a majority of use cases
 aside from GitHub Apps.
 
 	client := github.NewClient(nil).WithAuthToken("... your access token ...")
 
-Note that when using an authenticated Client, all calls made by the client will
+Note that when using an authenticated [Client], all calls made by the client will
 include the specified OAuth token. Therefore, authenticated clients should
 almost never be shared between different users.
 
 For API methods that require HTTP Basic Authentication, use the
-BasicAuthTransport.
+[BasicAuthTransport].
 
 GitHub Apps authentication can be provided by the
 https://github.com/bradleyfalzon/ghinstallation package.
@@ -100,21 +99,21 @@ limited to 60 requests per hour, while authenticated clients can make up to
 clients are limited to 10 requests per minute, while authenticated clients
 can make up to 30 requests per minute. To receive the higher rate limit when
 making calls that are not issued on behalf of a user,
-use UnauthenticatedRateLimitedTransport.
+use [UnauthenticatedRateLimitedTransport].
 
-The returned Response.Rate value contains the rate limit information
+The returned [Response].[Rate] value contains the rate limit information
 from the most recent API call. If a recent enough response isn't
 available, you can use RateLimits to fetch the most up-to-date rate
 limit data for the client.
 
-To detect an API rate limit error, you can check if its type is *github.RateLimitError.
-For secondary rate limits, you can check if its type is *github.AbuseRateLimitError:
+To detect an API rate limit error, you can check if its type is *[RateLimitError].
+For secondary rate limits, you can check if its type is *[AbuseRateLimitError]:
 
 	repos, _, err := client.Repositories.List(ctx, "", nil)
-	if _, ok := err.(*github.RateLimitError); ok {
+	if errors.As(err, new(*github.RateLimitError)) {
 		log.Println("hit rate limit")
 	}
-	if _, ok := err.(*github.AbuseRateLimitError); ok {
+	if errors.As(err, new(*github.AbuseRateLimitError)) {
 		log.Println("hit secondary rate limit")
 	}
 
@@ -129,20 +128,26 @@ the GitHub side. Methods known to behave like this are documented specifying
 this behavior.
 
 To detect this condition of error, you can check if its type is
-*github.AcceptedError:
+*[AcceptedError]:
 
 	stats, _, err := client.Repositories.ListContributorsStats(ctx, org, repo)
-	if _, ok := err.(*github.AcceptedError); ok {
+	if errors.As(err, new(*github.AcceptedError)) {
 		log.Println("scheduled on GitHub side")
 	}
 
 # Conditional Requests
 
-The GitHub API has good support for conditional requests which will help
-prevent you from burning through your rate limit, as well as help speed up your
-application. go-github does not handle conditional requests directly, but is
-instead designed to work with a caching http.Transport. We recommend using
-https://github.com/gregjones/httpcache for that.
+The GitHub REST API has good support for conditional HTTP requests
+via the ETag header which will help prevent you from burning through your
+rate limit, as well as help speed up your application. go-github does not
+handle conditional requests directly, but is instead designed to work with a
+caching [http.Transport].
+
+Typically, an RFC 9111 compliant HTTP cache such as https://github.com/bartventer/httpcache
+is recommended. Alternatively, the https://github.com/bored-engineer/github-conditional-http-transport
+package relies on (undocumented) GitHub specific cache logic and is
+recommended when making requests using short-lived credentials such as a
+GitHub App installation token.
 
 Learn more about GitHub conditional requests at
 https://docs.github.com/rest/overview/resources-in-the-rest-api#conditional-requests.
@@ -151,13 +156,13 @@ https://docs.github.com/rest/overview/resources-in-the-rest-api#conditional-requ
 
 All structs for GitHub resources use pointer values for all non-repeated fields.
 This allows distinguishing between unset fields and those set to a zero-value.
-Helper functions have been provided to easily create these pointers for string,
+A helper function, [Ptr], has been provided to easily create these pointers for string,
 bool, and int values. For example:
 
 	// create a new private repository named "foo"
 	repo := &github.Repository{
-		Name:    github.String("foo"),
-		Private: github.Bool(true),
+		Name:    github.Ptr("foo"),
+		Private: github.Ptr(true),
 	}
 	client.Repositories.Create(ctx, "", repo)
 
@@ -167,10 +172,10 @@ Users who have worked with protocol buffers should find this pattern familiar.
 
 All requests for resource collections (repos, pull requests, issues, etc.)
 support pagination. Pagination options are described in the
-github.ListOptions struct and passed to the list methods directly or as an
+[ListOptions] struct and passed to the list methods directly or as an
 embedded type of a more specific list options struct (for example
-github.PullRequestListOptions). Pages information is available via the
-github.Response struct.
+[PullRequestListOptions]). Pages information is available via the
+[Response] struct.
 
 	client := github.NewClient(nil)
 

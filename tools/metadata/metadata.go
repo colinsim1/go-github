@@ -7,6 +7,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -15,17 +16,18 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"maps"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
-	"github.com/google/go-github/v67/github"
-	"gopkg.in/yaml.v3"
+	"github.com/google/go-github/v83/github"
+	"go.yaml.in/yaml/v3"
 )
 
 type operation struct {
@@ -70,13 +72,10 @@ func operationsEqual(a, b []*operation) bool {
 }
 
 func sortOperations(ops []*operation) {
-	sort.Slice(ops, func(i, j int) bool {
-		leftVerb, leftURL := parseOpName(ops[i].Name)
-		rightVerb, rightURL := parseOpName(ops[j].Name)
-		if leftURL != rightURL {
-			return leftURL < rightURL
-		}
-		return leftVerb < rightVerb
+	slices.SortFunc(ops, func(a, b *operation) int {
+		leftVerb, leftURL := parseOpName(a.Name)
+		rightVerb, rightURL := parseOpName(b.Name)
+		return cmp.Or(cmp.Compare(leftURL, rightURL), cmp.Compare(leftVerb, rightVerb))
 	})
 }
 
@@ -186,7 +185,7 @@ func (m *operationsFile) updateFromGithub(ctx context.Context, client *github.Cl
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("unexpected status code: %s", resp.Status)
+		return fmt.Errorf("unexpected status code: %v", resp.Status)
 	}
 	ops, err := getOpsFromGithub(ctx, client, ref)
 	if err != nil {
@@ -281,7 +280,7 @@ func updateDocsVisitor(opsFile *operationsFile) nodeVisitor {
 			return err
 		}
 		if len(ops) == 0 {
-			return fmt.Errorf("no operations defined for %s", serviceMethod)
+			return fmt.Errorf("no operations defined for %v", serviceMethod)
 		}
 
 		for _, op := range ops {
@@ -291,11 +290,7 @@ func updateDocsVisitor(opsFile *operationsFile) nodeVisitor {
 			}
 			linksMap[op.DocumentationURL] = struct{}{}
 		}
-		var undocumentedOps []string
-		for op := range undocMap {
-			undocumentedOps = append(undocumentedOps, op)
-		}
-		sort.Strings(undocumentedOps)
+		undocumentedOps := slices.Sorted(maps.Keys(undocMap))
 
 		// Find the group that comes before the function
 		var group *ast.CommentGroup
@@ -327,28 +322,27 @@ func updateDocsVisitor(opsFile *operationsFile) nodeVisitor {
 		// add an empty line before adding doc links
 		group.List = append(group.List, &ast.Comment{Text: "//"})
 
-		var docLinks []string
-		for link := range linksMap {
-			docLinks = append(docLinks, link)
-		}
-		sort.Strings(docLinks)
-
-		for _, dl := range docLinks {
+		docLinks := slices.Sorted(maps.Keys(linksMap))
+		for i, dl := range docLinks {
 			group.List = append(
 				group.List,
 				&ast.Comment{
 					Text: "// GitHub API docs: " + cleanURLPath(dl),
 				},
 			)
+			if i < len(docLinks)-1 {
+				// add empty line between doc links
+				group.List = append(group.List, &ast.Comment{Text: "//"})
+			}
 		}
 		_, methodName, _ := strings.Cut(serviceMethod, ".")
 		for _, opName := range undocumentedOps {
-			line := fmt.Sprintf("// Note: %s uses the undocumented GitHub API endpoint %q.", methodName, opName)
+			line := fmt.Sprintf("// Note: %v uses the undocumented GitHub API endpoint %q.", methodName, opName)
 			group.List = append(group.List, &ast.Comment{Text: line})
 		}
 		for _, op := range ops {
 			group.List = append(group.List, &ast.Comment{
-				Text: fmt.Sprintf("//meta:operation %s", op.Name),
+				Text: fmt.Sprintf("//meta:operation %v", op.Name),
 			})
 		}
 		group.List[0].Slash = fn.Pos() - 1
@@ -431,7 +425,7 @@ func visitFileMethods(updateFile bool, filename string, visit nodeVisitor) error
 	if bytes.Equal(content, updatedContent) {
 		return nil
 	}
-	return os.WriteFile(filename, updatedContent, 0600)
+	return os.WriteFile(filename, updatedContent, 0o600)
 }
 
 var (
@@ -466,7 +460,7 @@ func methodOps(opsFile *operationsFile, cmap ast.CommentMap, fn *ast.FuncDecl) (
 			case 1:
 				name := found[0].Name
 				if seen[name] {
-					err = errors.Join(err, fmt.Errorf("duplicate operation: %s", name))
+					err = errors.Join(err, fmt.Errorf("duplicate operation: %v", name))
 				}
 				seen[name] = true
 				ops = append(ops, found[0])
@@ -475,7 +469,7 @@ func methodOps(opsFile *operationsFile, cmap ast.CommentMap, fn *ast.FuncDecl) (
 				for _, op := range found {
 					foundNames = append(foundNames, op.Name)
 				}
-				sort.Strings(foundNames)
+				slices.Sort(foundNames)
 				err = errors.Join(err, fmt.Errorf("ambiguous operation %q could match any of: %v", opName, foundNames))
 			}
 		}
@@ -516,5 +510,23 @@ func nodeServiceMethod(fn *ast.FuncDecl) string {
 		return ""
 	}
 
-	return id.Name + "." + fn.Name.Name
+	// Skip generated Iterator methods.
+	if strings.HasSuffix(fn.Name.Name, "Iter") {
+		return ""
+	}
+
+	serviceMethod := id.Name + "." + fn.Name.Name
+	if skipServiceMethod[serviceMethod] {
+		return ""
+	}
+
+	return serviceMethod
+}
+
+// See: https://github.com/google/go-github/issues/3894
+var skipServiceMethod = map[string]bool{
+	"BillingService.GetOrganizationPackagesBilling": true,
+	"BillingService.GetOrganizationStorageBilling":  true,
+	"BillingService.GetPackagesBilling":             true,
+	"BillingService.GetStorageBilling":              true,
 }

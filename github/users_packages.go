@@ -8,12 +8,14 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/url"
 )
 
 // ListPackages lists the packages for a user. Passing the empty string for "user" will
 // list packages for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/packages/packages#list-packages-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/packages/packages#list-packages-for-the-authenticated-users-namespace
 //
 //meta:operation GET /user/packages
@@ -48,6 +50,7 @@ func (s *UsersService) ListPackages(ctx context.Context, user string, opts *Pack
 // get the package for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/packages/packages#get-a-package-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/packages/packages#get-a-package-for-the-authenticated-user
 //
 //meta:operation GET /user/packages/{package_type}/{package_name}
@@ -55,9 +58,9 @@ func (s *UsersService) ListPackages(ctx context.Context, user string, opts *Pack
 func (s *UsersService) GetPackage(ctx context.Context, user, packageType, packageName string) (*Package, *Response, error) {
 	var u string
 	if user != "" {
-		u = fmt.Sprintf("users/%v/packages/%v/%v", user, packageType, packageName)
+		u = fmt.Sprintf("users/%v/packages/%v/%v", user, packageType, url.PathEscape(packageName))
 	} else {
-		u = fmt.Sprintf("user/packages/%v/%v", packageType, packageName)
+		u = fmt.Sprintf("user/packages/%v/%v", packageType, url.PathEscape(packageName))
 	}
 
 	req, err := s.client.NewRequest("GET", u, nil)
@@ -78,6 +81,7 @@ func (s *UsersService) GetPackage(ctx context.Context, user, packageType, packag
 // delete the package for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/packages/packages#delete-a-package-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/packages/packages#delete-a-package-for-the-authenticated-user
 //
 //meta:operation DELETE /user/packages/{package_type}/{package_name}
@@ -102,6 +106,7 @@ func (s *UsersService) DeletePackage(ctx context.Context, user, packageType, pac
 // restore the package for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/packages/packages#restore-a-package-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/packages/packages#restore-a-package-for-the-authenticated-user
 //
 //meta:operation POST /user/packages/{package_type}/{package_name}/restore
@@ -122,21 +127,21 @@ func (s *UsersService) RestorePackage(ctx context.Context, user, packageType, pa
 	return s.client.Do(ctx, req, nil)
 }
 
-// PackageGetAllVersions gets all versions of a package for a user. Passing the empty string for "user" will
-// get versions for the authenticated user.
+// ListPackageVersionsOptions specifies the optional parameters to the UsersService.ListPackageVersions.
+type ListPackageVersionsOptions struct {
+	// State of package either "active" or "deleted".
+	State string `url:"state,omitempty"`
+
+	ListOptions
+}
+
+// ListPackageVersions gets all versions of a package for the authenticated user.
 //
-// GitHub API docs: https://docs.github.com/rest/packages/packages#list-package-versions-for-a-package-owned-by-a-user
 // GitHub API docs: https://docs.github.com/rest/packages/packages#list-package-versions-for-a-package-owned-by-the-authenticated-user
 //
 //meta:operation GET /user/packages/{package_type}/{package_name}/versions
-//meta:operation GET /users/{username}/packages/{package_type}/{package_name}/versions
-func (s *UsersService) PackageGetAllVersions(ctx context.Context, user, packageType, packageName string, opts *PackageListOptions) ([]*PackageVersion, *Response, error) {
-	var u string
-	if user != "" {
-		u = fmt.Sprintf("users/%v/packages/%v/%v/versions", user, packageType, packageName)
-	} else {
-		u = fmt.Sprintf("user/packages/%v/%v/versions", packageType, packageName)
-	}
+func (s *UsersService) ListPackageVersions(ctx context.Context, packageType, packageName string, opts *ListPackageVersionsOptions) ([]*PackageVersion, *Response, error) {
+	u := fmt.Sprintf("user/packages/%v/%v/versions", packageType, packageName)
 	u, err := addOptions(u, opts)
 	if err != nil {
 		return nil, nil, err
@@ -156,10 +161,33 @@ func (s *UsersService) PackageGetAllVersions(ctx context.Context, user, packageT
 	return versions, resp, nil
 }
 
+// ListUserPackageVersions returns package versions for a public package owned by a specified user.
+//
+// GitHub API docs: https://docs.github.com/rest/packages/packages#list-package-versions-for-a-package-owned-by-a-user
+//
+//meta:operation GET /users/{username}/packages/{package_type}/{package_name}/versions
+func (s *UsersService) ListUserPackageVersions(ctx context.Context, user, packageType, packageName string) ([]*PackageVersion, *Response, error) {
+	u := fmt.Sprintf("users/%v/packages/%v/%v/versions", user, packageType, packageName)
+
+	req, err := s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var versions []*PackageVersion
+	resp, err := s.client.Do(ctx, req, &versions)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return versions, resp, nil
+}
+
 // PackageGetVersion gets a specific version of a package for a user. Passing the empty string for "user" will
 // get the version for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/packages/packages#get-a-package-version-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/packages/packages#get-a-package-version-for-the-authenticated-user
 //
 //meta:operation GET /user/packages/{package_type}/{package_name}/versions/{package_version_id}
@@ -190,6 +218,7 @@ func (s *UsersService) PackageGetVersion(ctx context.Context, user, packageType,
 // delete the version for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/packages/packages#delete-a-package-version-for-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/packages/packages#delete-package-version-for-a-user
 //
 //meta:operation DELETE /user/packages/{package_type}/{package_name}/versions/{package_version_id}
@@ -214,6 +243,7 @@ func (s *UsersService) PackageDeleteVersion(ctx context.Context, user, packageTy
 // restore the version for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/packages/packages#restore-a-package-version-for-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/packages/packages#restore-package-version-for-a-user
 //
 //meta:operation POST /user/packages/{package_type}/{package_name}/versions/{package_version_id}/restore

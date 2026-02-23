@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -37,7 +36,7 @@ func TestDependencyGraphService_GetSBOM(t *testing.T) {
     }`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	sbom, _, err := client.DependencyGraph.GetSBOM(ctx, "owner", "repo")
 	if err != nil {
 		t.Errorf("DependencyGraph.GetSBOM returned error: %v", err)
@@ -49,11 +48,11 @@ func TestDependencyGraphService_GetSBOM(t *testing.T) {
 			CreationInfo: &CreationInfo{
 				Created: &Timestamp{testTime},
 			},
-			Name: String("owner/repo"),
+			Name: Ptr("owner/repo"),
 			Packages: []*RepoDependencies{
 				{
-					Name:        String("rubygems:rails"),
-					VersionInfo: String("1.0.0"),
+					Name:        Ptr("rubygems:rails"),
+					VersionInfo: Ptr("1.0.0"),
 				},
 			},
 		},

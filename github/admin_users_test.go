@@ -6,7 +6,6 @@
 package github
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,7 +24,7 @@ func TestAdminUsers_Create(t *testing.T) {
 		assertNilError(t, json.NewDecoder(r.Body).Decode(v))
 
 		testMethod(t, r, "POST")
-		want := &CreateUserRequest{Login: "github", Email: String("email@domain.com"), Suspended: Bool(false)}
+		want := &CreateUserRequest{Login: "github", Email: Ptr("email@example.com"), Suspended: Ptr(false)}
 		if !cmp.Equal(v, want) {
 			t.Errorf("Request body = %+v, want %+v", v, want)
 		}
@@ -33,17 +32,17 @@ func TestAdminUsers_Create(t *testing.T) {
 		fmt.Fprint(w, `{"login":"github","id":1}`)
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	org, _, err := client.Admin.CreateUser(ctx, CreateUserRequest{
 		Login:     "github",
-		Email:     String("email@domain.com"),
-		Suspended: Bool(false),
+		Email:     Ptr("email@example.com"),
+		Suspended: Ptr(false),
 	})
 	if err != nil {
 		t.Errorf("Admin.CreateUser returned error: %v", err)
 	}
 
-	want := &User{ID: Int64(1), Login: String("github")}
+	want := &User{ID: Ptr(int64(1)), Login: Ptr("github")}
 	if !cmp.Equal(org, want) {
 		t.Errorf("Admin.CreateUser returned %+v, want %+v", org, want)
 	}
@@ -52,8 +51,8 @@ func TestAdminUsers_Create(t *testing.T) {
 	testNewRequestAndDoFailure(t, methodName, client, func() (*Response, error) {
 		got, resp, err := client.Admin.CreateUser(ctx, CreateUserRequest{
 			Login:     "github",
-			Email:     String("email@domain.com"),
-			Suspended: Bool(false),
+			Email:     Ptr("email@example.com"),
+			Suspended: Ptr(false),
 		})
 		if got != nil {
 			t.Errorf("testNewRequestAndDoFailure %v = %#v, want nil", methodName, got)
@@ -66,11 +65,11 @@ func TestAdminUsers_Delete(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/admin/users/github", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/admin/users/github", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Admin.DeleteUser(ctx, "github")
 	if err != nil {
 		t.Errorf("Admin.DeleteUser returned error: %v", err)
@@ -95,7 +94,7 @@ func TestUserImpersonation_Create(t *testing.T) {
 		testMethod(t, r, "POST")
 		testBody(t, r, `{"scopes":["repo"]}`+"\n")
 		fmt.Fprint(w, `{"id": 1234,
-		"url": "https://git.company.com/api/v3/authorizations/1234",
+		"url": "https://example.com/authorizations",
 		"app": {
 		  "name": "GitHub Site Administrator",
 		  "url": "https://docs.github.com/en/rest/enterprise/users/",
@@ -115,7 +114,7 @@ func TestUserImpersonation_Create(t *testing.T) {
 	})
 
 	opt := &ImpersonateUserOptions{Scopes: []string{"repo"}}
-	ctx := context.Background()
+	ctx := t.Context()
 	auth, _, err := client.Admin.CreateUserImpersonation(ctx, "github", opt)
 	if err != nil {
 		t.Errorf("Admin.CreateUserImpersonation returned error: %v", err)
@@ -123,16 +122,16 @@ func TestUserImpersonation_Create(t *testing.T) {
 
 	date := Timestamp{Time: time.Date(2018, time.January, 1, 0, 0, 0, 0, time.UTC)}
 	want := &UserAuthorization{
-		ID:  Int64(1234),
-		URL: String("https://git.company.com/api/v3/authorizations/1234"),
+		ID:  Ptr(int64(1234)),
+		URL: Ptr("https://example.com/authorizations"),
 		App: &OAuthAPP{
-			Name:     String("GitHub Site Administrator"),
-			URL:      String("https://docs.github.com/en/rest/enterprise/users/"),
-			ClientID: String("1234"),
+			Name:     Ptr("GitHub Site Administrator"),
+			URL:      Ptr("https://docs.github.com/en/rest/enterprise/users/"),
+			ClientID: Ptr("1234"),
 		},
-		Token:          String("1234"),
-		HashedToken:    String("1234"),
-		TokenLastEight: String("1234"),
+		Token:          Ptr("1234"),
+		HashedToken:    Ptr("1234"),
+		TokenLastEight: Ptr("1234"),
 		Note:           nil,
 		NoteURL:        nil,
 		CreatedAt:      &date,
@@ -163,11 +162,11 @@ func TestUserImpersonation_Delete(t *testing.T) {
 	t.Parallel()
 	client, mux, _ := setup(t)
 
-	mux.HandleFunc("/admin/users/github/authorizations", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/admin/users/github/authorizations", func(_ http.ResponseWriter, r *http.Request) {
 		testMethod(t, r, "DELETE")
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := client.Admin.DeleteUserImpersonation(ctx, "github")
 	if err != nil {
 		t.Errorf("Admin.DeleteUserImpersonation returned error: %v", err)
@@ -190,7 +189,7 @@ func TestCreateUserRequest_Marshal(t *testing.T) {
 
 	u := &CreateUserRequest{
 		Login: "l",
-		Email: String("e"),
+		Email: Ptr("e"),
 	}
 
 	want := `{
@@ -223,9 +222,9 @@ func TestOAuthAPP_Marshal(t *testing.T) {
 	testJSONMarshal(t, &OAuthAPP{}, "{}")
 
 	u := &OAuthAPP{
-		URL:      String("u"),
-		Name:     String("n"),
-		ClientID: String("cid"),
+		URL:      Ptr("u"),
+		Name:     Ptr("n"),
+		ClientID: Ptr("cid"),
 	}
 
 	want := `{
@@ -242,24 +241,24 @@ func TestUserAuthorization_Marshal(t *testing.T) {
 	testJSONMarshal(t, &UserAuthorization{}, "{}")
 
 	u := &UserAuthorization{
-		ID:  Int64(1),
-		URL: String("u"),
+		ID:  Ptr(int64(1)),
+		URL: Ptr("u"),
 		Scopes: []string{
 			"s",
 		},
-		Token:          String("t"),
-		TokenLastEight: String("tle"),
-		HashedToken:    String("ht"),
+		Token:          Ptr("t"),
+		TokenLastEight: Ptr("tle"),
+		HashedToken:    Ptr("ht"),
 		App: &OAuthAPP{
-			URL:      String("u"),
-			Name:     String("n"),
-			ClientID: String("cid"),
+			URL:      Ptr("u"),
+			Name:     Ptr("n"),
+			ClientID: Ptr("cid"),
 		},
-		Note:        String("n"),
-		NoteURL:     String("nu"),
+		Note:        Ptr("n"),
+		NoteURL:     Ptr("nu"),
 		UpdatedAt:   &Timestamp{referenceTime},
 		CreatedAt:   &Timestamp{referenceTime},
-		Fingerprint: String("f"),
+		Fingerprint: Ptr("f"),
 	}
 
 	want := `{

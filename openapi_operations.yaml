@@ -8067,3 +8067,27 @@ openapi_operations:
       - descriptions/api.github.com/api.github.com.json
       - descriptions/ghec/ghec.json
       - descriptions/ghes-3.19/ghes-3.19.json
+  - name: DELETE /enterprises/{enterprise}/audit-log/streams/{stream_id}
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#delete-an-audit-log-streaming-configuration-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
+  - name: GET /enterprises/{enterprise}/audit-log/stream-key
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#get-the-audit-log-streaming-key-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
+  - name: GET /enterprises/{enterprise}/audit-log/streams
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#list-audit-log-stream-configurations-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
+  - name: GET /enterprises/{enterprise}/audit-log/streams/{stream_id}
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#get-an-audit-log-streaming-configuration-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
+  - name: PATCH /enterprises/{enterprise}/audit-log/streams/{stream_id}
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#update-an-audit-log-streaming-configuration-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
+  - name: POST /enterprises/{enterprise}/audit-log/streams
+    documentation_url: https://docs.github.com/enterprise-cloud@latest//rest/enterprise-admin/audit-log#create-an-audit-log-streaming-configuration-for-an-enterprise
+    openapi_files:
+      - descriptions/ghec/ghec.json
